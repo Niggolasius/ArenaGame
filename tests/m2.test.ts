@@ -101,6 +101,27 @@ describe('Mercy', () => {
   });
 });
 
+describe('Mercy früh entscheiden', () => {
+  it('wer früh entscheidet, bekommt Ruhm nur für die Stimmen bis dahin', () => {
+    const r = simulate(a, b, 4, cfg, { events: true });
+    const m = setupMercy(a, b, r, 4, cfg);
+    const early = resolveMercy(m, 'honor', cfg, 1);
+    const late = resolveMercy(m, 'honor', cfg);
+    expect(early.spareVotes + early.killVotes).toBeLessThan(late.spareVotes + late.killVotes);
+    expect(Math.abs(early.fame)).toBeLessThanOrEqual(Math.abs(late.fame));
+  });
+
+  it('ohne Zuschauer stimmt ein kleines NPC-Publikum schnell ab', () => {
+    const c = cloneConfig(cfg);
+    c.mercy.spectators = { bronze: 0, silver: 0, gold: 0, champion: 0 };
+    const r = simulate(a, b, 4, c, { events: true });
+    const m = setupMercy(a, b, r, 4, c);
+    expect(m.npc).toBe(true);
+    expect(m.spectators).toBe(c.mercy.npcCrowd);
+    for (const v of m.votes) expect(v.t).toBeLessThanOrEqual(c.mercy.npcVoteSeconds);
+  });
+});
+
 describe('Form-Anzeige', () => {
   it('ordnet Tagesform den Stufen zu', () => {
     expect(formLabel(1.5)).toBe('In Top Form!');
