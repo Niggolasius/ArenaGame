@@ -1,6 +1,6 @@
 # ArenaGame
 
-Browser-Prototyp eines Arena-Spiels: Gladiatoren kämpfen in Echtzeit-Autokämpfen, die man sich ansieht. Dieser Stand ist **Meilenstein 2**: Kampf-Simulation und Test-Tool (Meilenstein 1) plus der Pixel-Kampf im Kolosseum mit Mercy-Moment. Das Spiel selbst ist auf Englisch, alle Namen, die Spieler sehen, stehen in `src/sim/names.ts`.
+Browser-Prototyp eines Arena-Spiels: Gladiatoren kämpfen in Echtzeit-Autokämpfen, die man sich ansieht. Dieser Stand ist **Meilenstein 3**: Kampf-Simulation und Test-Tool (Meilenstein 1), Pixel-Kampf mit Mercy-Moment (Meilenstein 2) und dazu Insel mit Minen, Inventar und Postfach. Das Spiel selbst ist auf Englisch, alle Namen, die Spieler sehen, stehen in `src/sim/names.ts`.
 
 ## Starten
 
@@ -17,8 +17,8 @@ npm run balance -- stones --n 20000 --seed 3   # nur eine Analyse, mit mehr Käm
 
 | Ordner | Inhalt |
 | --- | --- |
-| `src/sim/` | Die Simulation ohne Grafik: Typen, Zahlen (`config.ts`), Kampf (`combat.ts`), Stats und Kraft (`stats.ts`), Analysen (`analysis.ts`) |
-| `src/render/` | Die Darstellung: Pixel-Kampf (`arena.ts`), Kolosseum (`stage.ts`), Choreografie aus den Kampf-Ereignissen (`timeline.ts`), Sprite-Sheets (`sprites.ts`), Platzhalter-Grafik (`placeholder.ts`), Klänge (`audio.ts`) |
+| `src/sim/` | Die Simulation ohne Grafik: Typen, Zahlen (`config.ts`), Kampf (`combat.ts`), Stats und Kraft (`stats.ts`), Analysen (`analysis.ts`), Minen (`mine.ts`), Loot (`loot.ts`), Spielstand mit Postfach (`game.ts`) |
+| `src/render/` | Die Darstellung: Mine mit Arbeiter (`mineScene.ts`), Pixel-Icons (`icons.ts`), Pixel-Kampf (`arena.ts`), Kolosseum (`stage.ts`), Choreografie aus den Kampf-Ereignissen (`timeline.ts`), Sprite-Sheets (`sprites.ts`), Platzhalter-Grafik (`placeholder.ts`), Klänge (`audio.ts`) |
 | `src/tool/` | Das Test-Tool im Browser. Massensimulationen laufen in einem Web Worker. |
 | `scripts/balance.ts` | Dieselben Analysen ohne Browser |
 | `tests/` | Tests mit vitest |
@@ -78,3 +78,15 @@ Die Figuren sind Platzhalter. Jede Figur ist ein Sprite-Sheet, 32×32 pro Bild, 
 3. Zeilen, Bildzahl, fps und Fußpunkt (`anchorX`, `anchorY`) an das Sheet anpassen. Ein Asset-Pack muss nicht genau dieses Raster haben.
 
 Im Tab „Arena“ lässt sich jedes Platzhalter-Sheet als PNG-Vorlage herunterladen. Die Figur im Sheet schaut nach rechts, die rechte Figur wird automatisch gespiegelt.
+
+## Insel, Inventar, Postfach (Meilenstein 3)
+
+**Island**: Bauplätze für Minen-Karten (Common *Copper Pit*, Epic *Iron Mine*, Mythic *Obsidian Vein*, +50 % Menge). Der Arbeiter schlägt im Takt des Durchgangs (3 Schläge pro Durchgang, Aufprall genau auf dem `hitFrame`), am Ende fliegt ein Brocken in die Lore. Ladebalken: im Prototyp 5 s pro Durchgang. Jeder Durchgang landet im Lager (8 Plätze, die Lore füllt sich mit). Volles Lager: Stillstand ohne Verschleiß, der Arbeiter setzt sich und schläft. Nach `runs` Durchgängen ist die Karte verbraucht. **Collect** schickt das Lager als Brief ins Postfach. Die Minen laufen auch weiter, wenn ein anderer Tab offen oder der Browser zu war (bis 3 Tage werden nachgeholt). Test controls: Zeitraffer 1×/10×/60×, Karten hinzufügen, Lager füllen, Karte fast verbrauchen. Die Tabelle „Mine numbers“ rechnet die erwartete Ausbeute aus der Drop-Tabelle aus.
+
+**Mailbox**: Reiter Fights, Mine, System, rote Zahl für Ungelesenes und noch nicht Abgeholtes. Ein Kampf-Brief heißt nur „Fight #1042 finished“, das Ergebnis kommt erst mit **Show result** oder **Watch replay** (gleicher Kampf, gleiche Entscheidung). Bonus-Loot wird einzeln aufgedeckt, das Seltenste zuletzt (davor zittert die Karte). Labels wie in PoE2: Common grün, Rare blau, Epic lila mit Beam, Legendary orange mit Beam, Blitz und Klang, Mythic weißer Kasten mit dunkelroter Schrift und weißem Beam. **Claim all** legt alles ins Inventar. Nichts verfällt.
+
+**Kämpfe ins Postfach**: Jeder im Tab „Arena“ angesehene Kampf und jeder Kampf mit **Fight unseen** (blinde Arena, ×10 für Tests) erzeugt einen Brief. Spieler ist immer A. Der Einsatz ist sofort weg; beim Abholen kommen Pott (2 × Einsatz minus Arena-Anteil), Gnadengeld, Ruhm, Bonus-Steine nach Arena-Klasse und bei einem Kill die Ausrüstung des Gegners (Full Loot, 33 % werden zerstört, samt Steinen). Bei „Fight unseen“ folgt der Sieger der Mehrheit des Publikums. Das Test-Tool lässt Gold ins Minus gehen und tote Gladiatoren leben weiter, damit man weiter testen kann.
+
+**Inventory**: Gold, Ruhm, Ehre, Schlächter, die beiden Gladiatoren aus dem Duell, Minen-Karten (platzieren), Ausrüstung mit Sockeln, Edelsteine und Rohstoffe als Stapel.
+
+Alle Zahlen stehen unter Settings in `mine` (Durchgangsdauer, Lager, Laufzeit, Drop-Tabellen) und `loot` (Zerstör-Chance, Bonus-Loot pro Klasse). Der Arbeiter ist wie die Gladiatoren ein austauschbares Sprite-Sheet (`MINER` in `src/render/sprites.ts`: Zeile 0 Schlag, 1 Schlafen, 2 Stehen). Ein Pet statt Arbeiter geht genauso.

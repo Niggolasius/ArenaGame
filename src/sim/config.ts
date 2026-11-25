@@ -71,6 +71,42 @@ export interface Config {
     famePerVoter: number; // Ruhm pro abstimmendem Zuschauer, wenn der Sieger der Mehrheit folgt (sonst minus)
     scar: number; // Stat-Malus für den Verschonten (heilbar)
   };
+  /** Minen-Karten (Meilenstein 3). Ein Durchgang ist im Spiel später 1 Stunde, im Prototyp 5 s. */
+  mine: {
+    cycleSeconds: number; // Dauer eines Durchgangs
+    storageRuns: number; // so viele Durchgänge passen ins Lager (Spiel: 8 h), dann Stillstand ohne Verschleiß
+    plots: number; // Bauplätze auf der Insel für Minen
+    cards: Record<MineRarity, MineCardDef>;
+  };
+  /** Was nach einem Kampf ins Postfach kommt. */
+  loot: {
+    trashChance: number; // Full Loot: so viele Items des Getöteten werden zerstört (mit ihren Steinen)
+    specialChance: number; // Bonus-Stein ab Epic: Chance auf Sonderstein statt Grundstein
+    bonus: Record<string, BonusLootDef>; // pro Arena-Klasse (id)
+  };
+}
+
+export type MineRarity = 'common' | 'epic' | 'mythic';
+export type ResourceId = 'copper' | 'iron' | 'coal' | 'obsidian' | 'crystalShard' | 'starsteel';
+
+/** Pro Durchgang: jede Zeile würfelt einzeln (Chance), dann eine Menge zwischen min und max. */
+export interface DropRow {
+  res: ResourceId | 'gem'; // gem = Grundstein in der angegebenen Seltenheit
+  chance: number;
+  min: number;
+  max: number;
+  gemRarity?: Rarity;
+}
+export interface MineCardDef {
+  name: string;
+  runs: number; // Laufzeit: so viele Durchgänge, dann ist die Karte verbraucht
+  yieldMult: number; // Faktor auf alle Mengen (Mythic +50 %)
+  drops: DropRow[];
+}
+export interface BonusLootDef {
+  stones: [number, number]; // Anzahl Bonus-Steine für den Sieger, min..max
+  rarity: Partial<Record<Rarity, number>>; // Gewichte der Stein-Seltenheit
+  res: { res: ResourceId; chance: number; min: number; max: number }[];
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -145,6 +181,60 @@ export const DEFAULT_CONFIG: Config = {
     bribeMax: 1,
     famePerVoter: 1,
     scar: 1,
+  },
+  mine: {
+    cycleSeconds: 5,
+    storageRuns: 8,
+    plots: 2,
+    cards: {
+      common: {
+        name: 'Copper Pit',
+        runs: 60,
+        yieldMult: 1,
+        drops: [
+          { res: 'copper', chance: 1, min: 2, max: 3 },
+          { res: 'coal', chance: 0.5, min: 1, max: 1 },
+          { res: 'iron', chance: 0.2, min: 1, max: 1 },
+          { res: 'crystalShard', chance: 0.03, min: 1, max: 1 },
+          { res: 'gem', chance: 0.01, min: 1, max: 1, gemRarity: 'common' },
+        ],
+      },
+      epic: {
+        name: 'Iron Mine',
+        runs: 90,
+        yieldMult: 1,
+        drops: [
+          { res: 'iron', chance: 1, min: 2, max: 3 },
+          { res: 'coal', chance: 0.6, min: 1, max: 2 },
+          { res: 'copper', chance: 0.4, min: 1, max: 2 },
+          { res: 'obsidian', chance: 0.06, min: 1, max: 1 },
+          { res: 'crystalShard', chance: 0.05, min: 1, max: 1 },
+          { res: 'gem', chance: 0.02, min: 1, max: 1, gemRarity: 'common' },
+        ],
+      },
+      mythic: {
+        name: 'Obsidian Vein',
+        runs: 120,
+        yieldMult: 1.5,
+        drops: [
+          { res: 'iron', chance: 1, min: 2, max: 3 },
+          { res: 'obsidian', chance: 0.2, min: 1, max: 1 },
+          { res: 'coal', chance: 0.6, min: 1, max: 2 },
+          { res: 'crystalShard', chance: 0.08, min: 1, max: 1 },
+          { res: 'gem', chance: 0.03, min: 1, max: 1, gemRarity: 'rare' },
+        ],
+      },
+    },
+  },
+  loot: {
+    trashChance: 0.33,
+    specialChance: 0.25,
+    bonus: {
+      bronze: { stones: [1, 2], rarity: { common: 0.85, rare: 0.15 }, res: [{ res: 'iron', chance: 0.5, min: 1, max: 3 }] },
+      silver: { stones: [1, 2], rarity: { common: 0.3, rare: 0.6, epic: 0.1 }, res: [{ res: 'iron', chance: 0.6, min: 2, max: 4 }, { res: 'crystalShard', chance: 0.15, min: 1, max: 1 }] },
+      gold: { stones: [2, 3], rarity: { rare: 0.35, epic: 0.55, legendary: 0.1 }, res: [{ res: 'obsidian', chance: 0.4, min: 1, max: 2 }, { res: 'crystalShard', chance: 0.3, min: 1, max: 2 }] },
+      champion: { stones: [2, 3], rarity: { epic: 0.4, legendary: 0.55, mythic: 0.05 }, res: [{ res: 'starsteel', chance: 0.35, min: 1, max: 1 }, { res: 'obsidian', chance: 0.5, min: 1, max: 3 }] },
+    },
   },
 };
 

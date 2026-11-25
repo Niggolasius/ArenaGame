@@ -2,6 +2,7 @@
 // inklusive Mercy-Moment. Dazu Tempo, Zeitraffer, Blut an/aus, Ton und die Sprite-Sheets als Vorlage.
 
 import type { Config } from '../sim/config';
+import type { FightMail } from '../sim/game';
 import type { MercyChoice } from '../sim/names';
 import { STYLE_NAMES } from '../sim/names';
 import { arenaClass, power } from '../sim/stats';
@@ -16,9 +17,19 @@ export interface ArenaCtx {
   state: { a: Gladiator; b: Gladiator; seed: number; speed: number; blood: boolean; sound: boolean };
   cfg: Config;
   persist: () => void;
+  /** Ein angesehener Kampf ist entschieden: Brief ins Postfach (Meilenstein 3). */
+  onFightDone: (a: Gladiator, b: Gladiator, seed: number, choice: MercyChoice, at: number) => void;
+  /** Kämpfe ohne Zuschauen: sofort ins Postfach. */
+  fightUnseen: (n: number) => void;
+  backToMail: (mailId: number) => void;
 }
 
 let view: ArenaView | null = null;
+/** Replay aus dem Postfach: eigene Gladiatoren, Seed und Entscheidung aus dem Brief. */
+let mailReplay: { f: FightMail; mailId: number } | null = null;
+export function setMailReplay(f: FightMail | null, mailId = 0) {
+  mailReplay = f ? { f, mailId } : null;
+}
 let lastChoice: MercyChoice | undefined;
 let lastChoiceAt: number | undefined;
 
@@ -42,9 +53,11 @@ export function playArena(ctx: ArenaCtx, replay = false) {
     speed: s.speed,
     choice: replay ? lastChoice : undefined,
     choiceAt: replay ? lastChoiceAt : undefined,
+    note: replay ? undefined : 'Purse and bonus loot are waiting in your mailbox.',
     onDecision: (c, _o, at) => {
       lastChoice = c;
       lastChoiceAt = Number.isFinite(at) ? at : undefined;
+      if (!replay) ctx.onFightDone(s.a, s.b, s.seed, c, at);
     },
     onReplay: () => playArena(ctx, true),
     onNewFight: () => {
@@ -80,6 +93,11 @@ function seg<T extends string | number>(cur: T, opts: [T, string][], on: (v: T) 
 }
 
 function matchup(ctx: ArenaCtx) {
+  return matchupOf(ctx.state.a, ctx.state.b, ctx.cfg);
+}
+
+function matchupOf(a: Gladiator, b: Gladiator, cfg: Config) {
+  const ctx = { cfg };
   const side = (g: Gladiator, i: 0 | 1) => {
     const k = power(g, ctx.cfg);
     return h(
@@ -89,10 +107,52 @@ function matchup(ctx: ArenaCtx) {
       h('small', { class: 'muted' }, ` ${STYLE_NAMES[g.style]} · K ${k.toFixed(2)} · ${arenaClass(k, ctx.cfg).name}`),
     );
   };
-  return h('div', { class: 'matchup' }, side(ctx.state.a, 0), h('span', { class: 'vs' }, 'vs'), side(ctx.state.b, 1));
+  return h('div', { class: 'matchup' }, side(a, 0), h('span', { class: 'vs' }, 'vs'), side(b, 1));
+}
+
+function playMailReplay(ctx: ArenaCtx) {
+  const host = document.getElementById('arena-host');
+  if (!host || !mailReplay) return;
+  stopArena();
+  unlockAudio();
+  const { f, mailId } = mailReplay;
+  view = new ArenaView(host, f.a, f.b, f.seed, ctx.cfg, {
+    blood: ctx.state.blood,
+    speed: ctx.state.speed,
+    choice: f.choice,
+    choiceAt: f.choiceAt,
+    nextLabel: '✉ Back to mailbox',
+    onReplay: () => playMailReplay(ctx),
+    onNewFight: () => ctx.backToMail(mailId),
+  });
+  void view.start();
 }
 
 export function renderArena(root: HTMLElement, ctx: ArenaCtx) {
+  if (mailReplay) {
+    const { f, mailId } = mailReplay;
+    const host = h('div', { id: 'arena-host', class: 'arena-host' });
+    root.replaceChildren(
+      h(
+        'section',
+        { class: 'card arena-card' },
+        h(
+          'div',
+          { class: 'row gap wrap' },
+          h('button', { class: 'btn small', onclick: () => { sfx.click(); ctx.backToMail(mailId); } }, '← Mailbox'),
+          h('b', { class: 'replay-title' }, `Replay · Fight #${f.no} · ${f.className} Arena`),
+          h('span', { class: 'sep' }),
+          h('small', { class: 'muted' }, 'Speed'),
+          seg(ctx.state.speed, [[0.5, '½×'], [1, '1×'], [2, '2×']], (v) => { ctx.state.speed = v; ctx.persist(); view?.setSpeed(v); }),
+          h('button', { class: 'btn small', title: 'Fast-forward to the next part', onclick: () => { sfx.click(); view?.skip(); } }, '▸▸ Skip'),
+        ),
+        matchupOf(f.a, f.b, ctx.cfg),
+        host,
+      ),
+    );
+    requestAnimationFrame(() => playMailReplay(ctx));
+    return;
+  }
   const s = ctx.state;
   const seedIn = h('input', {
     id: 'arena-seed',
@@ -131,9 +191,16 @@ export function renderArena(root: HTMLElement, ctx: ArenaCtx) {
     h('small', { class: 'muted' }, 'Sound'),
     seg(s.sound ? 'on' : 'off', [['on', 'On'], ['off', 'Off']], (v) => { s.sound = v === 'on'; setMuted(!s.sound); ctx.persist(); }),
   );
+  const unseen = h(
+    'div',
+    { class: 'arena-controls' },
+    h('small', { class: 'muted' }, 'Blind arena: fight without watching, the result goes to the mailbox. The winner follows the crowd.'),
+    h('button', { class: 'btn', onclick: () => ctx.fightUnseen(1) }, '✉ Fight unseen'),
+    h('button', { class: 'btn small', onclick: () => ctx.fightUnseen(10) }, '×10'),
+  );
 
   root.replaceChildren(
-    h('section', { class: 'card arena-card' }, matchup(ctx), controls, host),
+    h('section', { class: 'card arena-card' }, matchup(ctx), controls, unseen, host),
     spritesCard(),
   );
 }

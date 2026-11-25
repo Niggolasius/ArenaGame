@@ -140,4 +140,37 @@ export const sfx = {
   fanfare() {
     [523, 659, 784, 1046].forEach((f, i) => tone('sawtooth', f, f, 0.07, 0.25, i * 0.11));
   },
+  /** Spitzhacke trifft Stein: leise, damit zwei Minen nicht nerven. */
+  pick() {
+    noiseHit(3200, 4, 0.05, 0.05);
+    tone('square', 900 + Math.random() * 200, 700, 0.015, 0.04);
+  },
+  /** Brocken landet in der Lore. */
+  clunk() {
+    noiseHit(400, 1.5, 0.08, 0.08);
+  },
+  /** Neuer Brief im Postfach. */
+  mail() {
+    tone('triangle', 880, 880, 0.06, 0.12);
+    tone('triangle', 1320, 1320, 0.06, 0.18, 0.1);
+  },
+  /** Aufdecken einer verdeckten Karte, je seltener desto größer. */
+  reveal(rank: number) {
+    noiseHit(1800, 2, 0.12, 0.08);
+    if (rank >= 1) tone('triangle', 660 + rank * 110, 660 + rank * 110, 0.07, 0.2);
+    if (rank >= 2) tone('sine', 220, 440, 0.12, 0.35, 0.05);
+    if (rank >= 3) [784, 988, 1175, 1568].forEach((f, i) => tone('triangle', f, f, 0.09, 0.4, 0.06 + i * 0.07));
+    if (rank >= 4) {
+      tone('sawtooth', 110, 55, 0.25, 1.2);
+      [1046, 1318, 1568, 2093].forEach((f, i) => tone('sine', f, f, 0.1, 0.8, 0.15 + i * 0.09));
+    }
+  },
+  /** Verdeckte Karte zittert vor dem Aufdecken. */
+  suspense() {
+    tone('sine', 180, 260, 0.06, 0.5);
+  },
+  claim() {
+    for (let i = 0; i < 8; i++) tone('triangle', 1400 + i * 120, 1300 + i * 120, 0.06, 0.1, i * 0.04);
+    tone('sine', 200, 120, 0.2, 0.2);
+  },
 };
