@@ -8,6 +8,7 @@ Browser-Prototyp eines Arena-Spiels: Gladiatoren kämpfen in Echtzeit-Autokämpf
 npm install
 npm run dev        # Test-Tool im Browser
 npm test           # automatische Tests
+npm run build:single   # alles in EINE Datei: dist-single/index.html, im Browser öffnen, ohne npm
 npm run balance    # alle Balance-Analysen in der Konsole
 npm run balance -- stones --n 20000 --seed 3   # nur eine Analyse, mit mehr Kämpfen
 ```

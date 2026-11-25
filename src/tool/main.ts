@@ -2,6 +2,8 @@
 
 import './style.css';
 import { h } from './dom';
+// inline: der Worker steckt mit in der Datei, damit das Test-Tool auch als einzelne HTML-Datei läuft
+import ArenaWorker from './worker?worker&inline';
 import type { AnalysisId, MassResult, Report } from '../sim/analysis';
 import { simulate } from '../sim/combat';
 import { DEFAULT_CONFIG, type Config } from '../sim/config';
@@ -83,7 +85,7 @@ let pending: { id: number; resolve: (v: { result: unknown; ms: number }) => void
 
 function getWorker(): Worker {
   if (worker) return worker;
-  worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+  worker = new ArenaWorker();
   worker.onmessage = (e) => {
     const m = e.data;
     if (!pending || m.job !== pending.id) return;
