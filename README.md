@@ -1,6 +1,6 @@
 # ArenaGame
 
-Browser-Prototyp eines Arena-Spiels: Gladiatoren kämpfen in Echtzeit-Autokämpfen, die man sich ansieht. Dieser Stand ist **Meilenstein 1**: die Kampf-Simulation und das Test-Tool zum Ausbalancieren.
+Browser-Prototyp eines Arena-Spiels: Gladiatoren kämpfen in Echtzeit-Autokämpfen, die man sich ansieht. Dieser Stand ist **Meilenstein 1**: die Kampf-Simulation und das Test-Tool zum Ausbalancieren. Das Spiel selbst ist auf Englisch, alle Namen, die Spieler sehen, stehen in `src/sim/names.ts`.
 
 ## Starten
 
@@ -9,7 +9,7 @@ npm install
 npm run dev        # Test-Tool im Browser
 npm test           # automatische Tests
 npm run balance    # alle Balance-Analysen in der Konsole
-npm run balance -- steine --n 20000 --seed 3   # nur eine Analyse, mit mehr Kämpfen
+npm run balance -- stones --n 20000 --seed 3   # nur eine Analyse, mit mehr Kämpfen
 ```
 
 ## Aufbau
@@ -31,9 +31,9 @@ Die Simulation ist so gebaut, dass diese Formel im Mittel stimmt:
 
 - Schaden pro Sekunde wächst mit ATK + SPD/2.
 - Aushalten wächst mit DEF + HP.
-- Zufall sorgt für Überraschungen: Streuung pro Treffer, Krits, Ausweichen, eine **Tagesform** pro Kampf (±65 % Schaden) und seltene **Wuchttreffer** (30 % der gegnerischen Lebenspunkte).
+- Zufall sorgt für Überraschungen: Streuung pro Treffer, Krits, Ausweichen, eine **Tagesform** („Form“) pro Kampf (±65 % Schaden) und seltene **Wuchttreffer** („Crushing Blow“, 30 % der gegnerischen Lebenspunkte).
 
-Dazu kommen Kampfstil (Schwer, Flink, Speer), Haltung mit Konter-Dreieck (Aggressiv > Ausweichend > Defensiv > Aggressiv), Distanz und Letztes Gefecht unter 25 % HP.
+Dazu kommen Kampfstil (Heavy, Swift, Spear), Haltung mit Konter-Dreieck (Aggressive > Evasive > Defensive > Aggressive), Distanz (Close, Range) und Letztes Gefecht („Last Stand“: All In oder Hold Out) unter 25 % HP.
 
 ## Das Test-Tool
 

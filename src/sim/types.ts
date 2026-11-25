@@ -4,20 +4,20 @@ export type StatKey = 'atk' | 'def' | 'hp' | 'spd';
 export type Stats = Record<StatKey, number>;
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
-export type Style = 'schwer' | 'flink' | 'speer';
-export type Stance = 'aggressiv' | 'ausweichend' | 'defensiv';
-export type Distance = 'nah' | 'fern';
-export type LastStand = 'normal' | 'alles' | 'durchhalten';
+export type Style = 'heavy' | 'swift' | 'spear';
+export type Stance = 'aggressive' | 'evasive' | 'defensive';
+export type Distance = 'near' | 'far';
+export type LastStand = 'normal' | 'allIn' | 'holdOut';
 
 /** Grundsteine erhöhen einen Stat, Sondersteine haben eine Mechanik. */
 export type StoneKind =
   | { type: 'base'; stat: StatKey; value: number }
-  | { type: 'krit' }
-  | { type: 'blutdurst' }
-  | { type: 'zorn' }
-  | { type: 'dornen' }
-  | { type: 'erstschlag' }
-  | { type: 'fluch' };
+  | { type: 'crit' }
+  | { type: 'bloodthirst' }
+  | { type: 'wrath' }
+  | { type: 'thorns' }
+  | { type: 'firstStrike' }
+  | { type: 'curse' };
 
 export interface Stone {
   id: string;
@@ -25,7 +25,7 @@ export interface Stone {
   kind: StoneKind;
 }
 
-export type Slot = 'waffe' | 'ruestung' | 'amulett';
+export type Slot = 'weapon' | 'armor' | 'amulet';
 
 export interface Item {
   id: string;
@@ -60,7 +60,7 @@ export type FightEvent =
   | { t: number; type: 'heal'; who: 0 | 1; amount: number; hpLeft: number }
   | { t: number; type: 'thorns'; who: 0 | 1; dmg: number; hpLeft: number }
   | { t: number; type: 'laststand'; who: 0 | 1 }
-  | { t: number; type: 'end'; winner: 0 | 1; reason: 'ko' | 'zeit' };
+  | { t: number; type: 'end'; winner: 0 | 1; reason: 'ko' | 'time' };
 
 export interface FightResult {
   winner: 0 | 1;

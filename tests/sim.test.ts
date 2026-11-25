@@ -10,8 +10,8 @@ const cfg = DEFAULT_CONFIG;
 
 describe('Simulation', () => {
   it('gleicher Seed ergibt denselben Kampf', () => {
-    const a = makeGladiator({ base: { atk: 7, def: 5, hp: 6, spd: 4 }, style: 'schwer' });
-    const b = makeGladiator({ base: { atk: 5, def: 6, hp: 7, spd: 8 }, style: 'flink' });
+    const a = makeGladiator({ base: { atk: 7, def: 5, hp: 6, spd: 4 }, style: 'heavy' });
+    const b = makeGladiator({ base: { atk: 5, def: 6, hp: 7, spd: 8 }, style: 'swift' });
     const r1 = simulate(a, b, 42, cfg, { events: true });
     const r2 = simulate(a, b, 42, cfg, { events: true });
     expect(r2).toEqual(r1);
@@ -55,22 +55,22 @@ describe('Stats und Kraft', () => {
   it('Ausrüstung und Grundsteine zählen, begrenzt auf statCap', () => {
     const g = makeGladiator({
       base: { atk: 10, def: 5, hp: 5, spd: 5 },
-      items: [makeItem('waffe', 'rare', { atk: 2 }, 1, [makeStone('legendary', { type: 'base', stat: 'atk', value: 0 })])],
+      items: [makeItem('weapon', 'rare', { atk: 2 }, 1, [makeStone('legendary', { type: 'base', stat: 'atk', value: 0 })])],
     });
     expect(effectiveStats(g, cfg).atk).toBe(cfg.statCap);
   });
 
   it('Steine ohne Sockel zählen nicht, höchstens ein Sonderstein', () => {
-    const krit = makeStone('epic', { type: 'krit' });
-    const blut = makeStone('legendary', { type: 'blutdurst' });
-    const g = makeGladiator({ base: even(5), items: [makeItem('amulett', 'epic', {}, 2, [krit, blut]), makeItem('waffe', 'epic', {}, 0, [krit])] });
+    const krit = makeStone('epic', { type: 'crit' });
+    const blut = makeStone('legendary', { type: 'bloodthirst' });
+    const g = makeGladiator({ base: even(5), items: [makeItem('amulet', 'epic', {}, 2, [krit, blut]), makeItem('weapon', 'epic', {}, 0, [krit])] });
     expect(specialStones(g, cfg)).toHaveLength(1);
     expect(power(g, cfg)).toBeCloseTo(rawPower(even(5)) * (cfg.kSurcharge.epic ?? 1));
   });
 
   it('Arena-Klassen nach K', () => {
     expect(arenaClass(7.9, cfg).id).toBe('bronze');
-    expect(arenaClass(8, cfg).id).toBe('silber');
+    expect(arenaClass(8, cfg).id).toBe('silver');
     expect(arenaClass(15.99, cfg).id).toBe('gold');
     expect(arenaClass(30, cfg).id).toBe('champion');
   });
@@ -82,7 +82,7 @@ describe('Stats und Kraft', () => {
 
   it('ein Sonderstein bringt etwa seinen eingestellten Aufschlag', () => {
     const base = makeGladiator({ base: even(8) });
-    const a = withStone(base, makeStone('epic', { type: 'krit' }));
+    const a = withStone(base, makeStone('epic', { type: 'crit' }));
     const m = massSim(a, base, 20000, 9, cfg);
     expect(kFactorFromP(m.p, cfg.formulaExponent)).toBeCloseTo(cfg.kSurcharge.epic ?? 1, 1);
   });

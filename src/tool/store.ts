@@ -2,8 +2,8 @@
 
 import { cloneConfig, DEFAULT_CONFIG, type Config } from '../sim/config';
 
-const KEY_CFG = 'arenagame.tool.config.v1';
-const KEY_STATE = 'arenagame.tool.state.v1';
+const KEY_CFG = 'arenagame.tool.config.v2';
+const KEY_STATE = 'arenagame.tool.state.v2';
 
 /** Legt gespeicherte Werte über die Standardwerte, damit neue Felder aus Updates nicht fehlen. */
 export function mergeConfig(base: unknown, over: unknown): unknown {

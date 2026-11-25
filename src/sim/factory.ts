@@ -1,13 +1,14 @@
 // Gladiatoren, Items und Steine erzeugen: für das Test-Tool, die Analysen und später das Spiel.
 
 import type { Config } from './config';
+import { SLOT_NAMES } from './names';
 import type { Rng } from './rng';
 import type { Gladiator, Item, Orders, Rarity, Slot, Stats, Stone, StoneKind, Style } from './types';
 
 let counter = 0;
 export const uid = (p: string) => `${p}${(++counter).toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 
-export const DEFAULT_ORDERS: Orders = { stance: 'aggressiv', distance: 'nah', lastStand: 'normal' };
+export const DEFAULT_ORDERS: Orders = { stance: 'aggressive', distance: 'near', lastStand: 'normal' };
 
 export function makeGladiator(p: {
   name?: string;
@@ -17,7 +18,7 @@ export function makeGladiator(p: {
   items?: Item[];
   orders?: Partial<Orders>;
 }): Gladiator {
-  const style = p.style ?? 'speer';
+  const style = p.style ?? 'spear';
   return {
     id: uid('g'),
     name: p.name ?? 'Gladiator',
@@ -25,7 +26,7 @@ export function makeGladiator(p: {
     style,
     base: { ...p.base },
     items: p.items ?? [],
-    orders: { ...DEFAULT_ORDERS, distance: style === 'speer' ? 'fern' : 'nah', ...p.orders },
+    orders: { ...DEFAULT_ORDERS, distance: style === 'spear' ? 'far' : 'near', ...p.orders },
   };
 }
 
@@ -38,19 +39,18 @@ export function makeStone(rarity: Rarity, kind: StoneKind): Stone {
 }
 
 export function makeItem(slot: Slot, rarity: Rarity, bonus: Partial<Stats>, sockets = 0, stones: Stone[] = []): Item {
-  const names: Record<Slot, string> = { waffe: 'Waffe', ruestung: 'Rüstung', amulett: 'Amulett' };
-  return { id: uid('i'), slot, rarity, name: names[slot], bonus, sockets, stones };
+  return { id: uid('i'), slot, rarity, name: SLOT_NAMES[slot], bonus, sockets, stones };
 }
 
 /** Ein Amulett mit einem Sockel und genau diesem Stein, ohne Stat-Bonus. Für Stein-Tests. */
 export function withStone(g: Gladiator, stone: Stone): Gladiator {
-  return { ...g, id: uid('g'), items: [...g.items, makeItem('amulett', stone.rarity, {}, 1, [stone])] };
+  return { ...g, id: uid('g'), items: [...g.items, makeItem('amulet', stone.rarity, {}, 1, [stone])] };
 }
 
 export function randomGladiator(rng: Rng, cfg: Config, rarity: Exclude<Rarity, 'mythic'>, style?: Style): Gladiator {
   const [lo, hi] = cfg.rarityRanges[rarity];
   const r = () => lo + Math.floor(rng() * (hi - lo + 1));
-  const styles: Style[] = ['schwer', 'flink', 'speer'];
+  const styles: Style[] = ['heavy', 'swift', 'spear'];
   return makeGladiator({
     rarity,
     style: style ?? styles[Math.floor(rng() * 3)],
@@ -59,7 +59,7 @@ export function randomGladiator(rng: Rng, cfg: Config, rarity: Exclude<Rarity, '
 }
 
 /** Stats im Bereich 1..cap frei gewürfelt, für die Formel-Prüfung über die ganze Spanne. */
-export function randomStatsGladiator(rng: Rng, cfg: Config, style: Style = 'speer'): Gladiator {
+export function randomStatsGladiator(rng: Rng, cfg: Config, style: Style = 'spear'): Gladiator {
   const r = () => cfg.statMin + Math.floor(rng() * (cfg.statCap - cfg.statMin + 1));
   return makeGladiator({ style, base: { atk: r(), def: r(), hp: r(), spd: r() } });
 }

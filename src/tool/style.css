@@ -89,7 +89,7 @@ label.inline { display: flex; align-items: center; gap: 8px; margin: 6px 0; just
 .kbig small { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .1em; }
 .cls { font: 700 12px var(--sans); padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: .08em; }
 .cls.bronze { background: #6b4224; color: #f3c9a0; }
-.cls.silber { background: #5a6068; color: #eef2f6; }
+.cls.silver { background: #5a6068; color: #eef2f6; }
 .cls.gold { background: #8a6a1c; color: #ffe8a8; }
 .cls.champion { background: #5b1f6e; color: #f2c9ff; box-shadow: 0 0 10px rgba(190,90,230,.5); }
 

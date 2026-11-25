@@ -4,7 +4,8 @@ import { simulate } from './combat';
 import type { Config } from './config';
 import { even, makeGladiator, makeStone, randomStatsGladiator, withStone } from './factory';
 import { deriveSeed, mulberry32 } from './rng';
-import { formulaP, kFactorFromP, power, RARITY_NAMES } from './stats';
+import { DISTANCE_NAMES, LAST_STAND_NAMES, RARITY_NAMES, STANCE_NAMES, STONE_NAMES, STYLE_NAMES } from './names';
+import { formulaP, kFactorFromP, power } from './stats';
 import type { Gladiator, LastStand, Rarity, Stance, Stats, StoneKind, Style } from './types';
 
 export type Progress = (done: number, total: number) => void;
@@ -60,7 +61,7 @@ export interface Report {
 const pct = (v: number) => `${(v * 100).toFixed(1)} %`;
 /** Wie stark eine Messung allein durch Zufall schwankt (95 %), bei p um 50 %. */
 const noise = (n: number) =>
-  `Zufallsschwankung bei ${n} Kämpfen: etwa ±${((1.96 * 0.5) / Math.sqrt(n) * 100).toFixed(1)} Prozentpunkte. Für Entscheidungen 10.000 oder mehr nehmen.`;
+  `Random noise at ${n.toLocaleString('en-US')} fights: about ±${((1.96 * 0.5) / Math.sqrt(n) * 100).toFixed(1)} percentage points. Use 10,000 or more before deciding anything.`;
 const pp = (v: number) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}`;
 
 /** 1. Passt P = K^e / (K^e + K^e) zur Simulation? Zufällige Paare über die ganze Stat-Spanne. */
@@ -68,7 +69,7 @@ export function formulaCheck(cfg: Config, pairs: number, fights: number, seed: n
   const rng = mulberry32(seed);
   const pts: { x: number; y: number; lr: number; w: number; label: string }[] = [];
   for (let i = 0; i < pairs; i++) {
-    const style: Style = (['schwer', 'flink', 'speer'] as Style[])[i % 3];
+    const style: Style = (['heavy', 'swift', 'spear'] as Style[])[i % 3];
     let a = randomStatsGladiator(rng, cfg, style);
     let b = randomStatsGladiator(rng, cfg, style);
     let kA = power(a, cfg);
@@ -76,8 +77,8 @@ export function formulaCheck(cfg: Config, pairs: number, fights: number, seed: n
     if (kA < kB) [a, b, kA, kB] = [b, a, kB, kA];
     if (kA / kB > 3) continue; // extreme Paare tragen nichts bei
     const m = massSim(a, b, fights, deriveSeed(seed, 1000 + i), cfg);
-    const st = (g: Gladiator) => `${g.style} ${g.base.atk}/${g.base.def}/${g.base.hp}/${g.base.spd}`;
-    pts.push({ x: formulaP(kA, kB, cfg.formulaExponent), y: m.p, lr: Math.log(kA / kB), w: fights, label: `${st(a)} gegen ${st(b)}` });
+    const st = (g: Gladiator) => `${STYLE_NAMES[g.style]} ${g.base.atk}/${g.base.def}/${g.base.hp}/${g.base.spd}`;
+    pts.push({ x: formulaP(kA, kB, cfg.formulaExponent), y: m.p, lr: Math.log(kA / kB), w: fights, label: `${st(a)} vs ${st(b)}` });
     progress?.(i, pairs);
   }
   // Exponent schätzen: logit(p) = e * ln(kA/kB), gewichtete kleinste Quadrate.
@@ -107,23 +108,23 @@ export function formulaCheck(cfg: Config, pairs: number, fights: number, seed: n
     )
     .filter(Boolean) as (string | number)[][];
   return {
-    id: 'formel',
-    title: 'Formel gegen Simulation',
+    id: 'formula',
+    title: 'Formula vs simulation',
     ok: meanDev <= 0.03,
     summary: [
-      `Gemessener Exponent: ${exp.toFixed(2)} (Formel nutzt ${cfg.formulaExponent})`,
-      `Mittlere Abweichung: ${(meanDev * 100).toFixed(1)} Prozentpunkte, größte: ${(maxDev * 100).toFixed(1)}`,
-      `Größte Abweichung bei ${worst.label} (ATK/DEF/HP/SPD): Formel ${pct(worst.x)}, gemessen ${pct(worst.y)}`,
-      `${pts.length} Paare mit je ${fights} Kämpfen. Ziel: höchstens 3 Prozentpunkte im Mittel.`,
+      `Measured exponent: ${exp.toFixed(2)} (formula uses ${cfg.formulaExponent})`,
+      `Mean deviation: ${(meanDev * 100).toFixed(1)} percentage points, largest: ${(maxDev * 100).toFixed(1)}`,
+      `Largest deviation: ${worst.label} (ATK/DEF/HP/SPD), formula ${pct(worst.x)}, measured ${pct(worst.y)}`,
+      `${pts.length} pairs with ${fights} fights each. Target: at most 3 percentage points on average.`,
     ],
-    head: ['Formel sagt', 'Paare', 'Formel im Mittel', 'Gemessen', 'Abweichung (pp)'],
+    head: ['Formula says', 'Pairs', 'Formula avg', 'Measured', 'Deviation (pp)'],
     rows,
     points: pts.map((p) => ({ x: p.x, y: p.y })),
   };
 }
 
-const STANCES: Stance[] = ['aggressiv', 'ausweichend', 'defensiv'];
-const BEATS: Record<Stance, Stance> = { aggressiv: 'ausweichend', ausweichend: 'defensiv', defensiv: 'aggressiv' };
+const STANCES: Stance[] = ['aggressive', 'evasive', 'defensive'];
+const BEATS: Record<Stance, Stance> = { aggressive: 'evasive', evasive: 'defensive', defensive: 'aggressive' };
 
 /** 2. Wie stark wirken die Haltungs-Konter bei gleicher Kraft? Ziel: +5 bis +8 Prozentpunkte. */
 export function stanceCheck(cfg: Config, fights: number, seed: number, progress?: Progress): Report {
@@ -135,9 +136,9 @@ export function stanceCheck(cfg: Config, fights: number, seed: number, progress?
       const a = makeGladiator({ base: even(7), orders: { stance: sa } });
       const b = makeGladiator({ base: even(7), orders: { stance: sb } });
       const m = massSim(a, b, fights, deriveSeed(seed, step), cfg);
-      const rel = BEATS[sa] === sb ? 'Konter' : BEATS[sb] === sa ? 'wird gekontert' : 'gleich';
-      if (rel === 'Konter') counters.push(m.p - 0.5);
-      rows.push([sa, sb, rel, pct(m.p), pp(m.p - 0.5)]);
+      const rel = BEATS[sa] === sb ? 'counters' : BEATS[sb] === sa ? 'is countered' : 'even';
+      if (rel === 'counters') counters.push(m.p - 0.5);
+      rows.push([STANCE_NAMES[sa], STANCE_NAMES[sb], rel, pct(m.p), pp(m.p - 0.5)]);
       step++;
       progress?.(step, 9);
     }
@@ -146,15 +147,15 @@ export function stanceCheck(cfg: Config, fights: number, seed: number, progress?
   const min = Math.min(...counters);
   const max = Math.max(...counters);
   return {
-    id: 'haltung',
-    title: 'Haltungs-Konter',
+    id: 'stance',
+    title: 'Stance counters',
     ok: min >= 0.045 && max <= 0.085,
     summary: [
-      `Konter bringt im Mittel ${pp(avg)} Prozentpunkte (Spanne ${pp(min)} bis ${pp(max)}).`,
-      'Ziel: +5 bis +8. Beide Gladiatoren haben alle Stats auf 7 und den Kampfstil Speer.',
+      `A counter is worth ${pp(avg)} percentage points on average (range ${pp(min)} to ${pp(max)}).`,
+      'Target: +5 to +8. Both gladiators have all stats at 7 and the Spear style.',
       noise(fights),
     ],
-    head: ['Haltung A', 'Haltung B', 'Verhältnis', 'A gewinnt', 'Abstand zu 50 % (pp)'],
+    head: ['Stance A', 'Stance B', 'Relation', 'A wins', 'vs 50 % (pp)'],
     rows,
   };
 }
@@ -163,15 +164,15 @@ export function stanceCheck(cfg: Config, fights: number, seed: number, progress?
 export function stoneCheck(cfg: Config, fights: number, seed: number, baseStat = 8, progress?: Progress): Report {
   const tests: { label: string; rarity: Rarity; kind: StoneKind }[] = [];
   for (const r of ['epic', 'legendary', 'mythic'] as Rarity[]) {
-    tests.push({ label: 'Krit', rarity: r, kind: { type: 'krit' } });
-    tests.push({ label: 'Blutdurst', rarity: r, kind: { type: 'blutdurst' } });
+    tests.push({ label: 'Crit', rarity: r, kind: { type: 'crit' } });
+    tests.push({ label: 'Bloodthirst', rarity: r, kind: { type: 'bloodthirst' } });
   }
-  tests.push({ label: 'Zorn', rarity: 'mythic', kind: { type: 'zorn' } });
-  tests.push({ label: 'Dornen', rarity: 'mythic', kind: { type: 'dornen' } });
-  tests.push({ label: 'Erstschlag', rarity: 'mythic', kind: { type: 'erstschlag' } });
-  tests.push({ label: 'Fluch', rarity: 'mythic', kind: { type: 'fluch' } });
+  tests.push({ label: 'Wrath', rarity: 'mythic', kind: { type: 'wrath' } });
+  tests.push({ label: 'Thorns', rarity: 'mythic', kind: { type: 'thorns' } });
+  tests.push({ label: 'First Strike', rarity: 'mythic', kind: { type: 'firstStrike' } });
+  tests.push({ label: 'Curse', rarity: 'mythic', kind: { type: 'curse' } });
   for (const r of ['common', 'rare', 'epic', 'legendary'] as Rarity[]) {
-    tests.push({ label: 'Grundstein ATK', rarity: r, kind: { type: 'base', stat: 'atk', value: 0 } });
+    tests.push({ label: 'Base Stone ATK', rarity: r, kind: { type: 'base', stat: 'atk', value: 0 } });
   }
 
   const base = makeGladiator({ base: even(baseStat) });
@@ -193,21 +194,21 @@ export function stoneCheck(cfg: Config, fights: number, seed: number, baseStat =
       pp(delta),
       `×${kf.toFixed(3)}`,
       `×${set.toFixed(3)}`,
-      isSpecial ? (ruleOk ? 'passt' : kf > set ? 'zu stark' : 'zu schwach') : 'Stat-Stein',
+      isSpecial ? (ruleOk ? 'fits' : kf > set ? 'too strong' : 'too weak') : 'stat stone',
     ]);
     progress?.(i + 1, tests.length);
   });
   return {
-    id: 'steine',
-    title: 'Steine als Kraft-Aufschlag',
+    id: 'stones',
+    title: 'Stones as power bonus',
     ok,
     summary: [
-      `Gegner: derselbe Gladiator ohne Stein (alle Stats ${baseStat}). ${fights} Kämpfe pro Zeile.`,
-      'Gemessener K-Faktor = welcher Kraft-Aufschlag die gemessene Siegquote nach der Formel erklärt.',
+      `Opponent: the same gladiator without the stone (all stats ${baseStat}). ${fights} fights per row.`,
+      'Measured K factor = the power bonus that explains the measured win rate under the formula.',
       noise(fights),
-      `Regel: Der gemessene K-Faktor eines Sondersteins liegt höchstens ${cfg.stoneTolerance.toFixed(2)} neben dem eingestellten Aufschlag.`,
+      `Rule: a special stone's measured K factor is within ${cfg.stoneTolerance.toFixed(2)} of its configured bonus.`,
     ],
-    head: ['Stein', 'Seltenheit', 'Siegquote', 'Plus (pp)', 'Gemessener K-Faktor', 'Eingestellt', 'Ergebnis'],
+    head: ['Stone', 'Rarity', 'Win rate', 'Gain (pp)', 'Measured K factor', 'Configured', 'Result'],
     rows,
   };
 }
@@ -229,21 +230,21 @@ export function classEdgeCheck(cfg: Config, fights: number, seed: number, progre
     progress?.(i + 1, cfg.arena.classes.length);
   });
   return {
-    id: 'klassen',
-    title: 'Siegquote am Klassenrand',
+    id: 'classes',
+    title: 'Win rate at class edges',
     ok: true,
     summary: [
-      'Stärkster gegen Schwächsten derselben Klasse, als Modell-Gladiatoren mit gleichen Stats.',
-      'Je höher die Quote, desto weiter sollte man die Klasse aufteilen oder die Grenzen verschieben.',
+      'Strongest vs weakest of the same class, as model gladiators with even stats.',
+      'The higher the rate, the more the class should be split or its edges moved.',
     ],
-    head: ['Klasse', 'Kraft-Spanne', 'Formel', 'Gemessen'],
+    head: ['Class', 'Power range', 'Formula', 'Measured'],
     rows,
   };
 }
 
 /** 5. Sind die Kampfstile bei gleicher Kraft ausgeglichen? */
 export function styleCheck(cfg: Config, fights: number, seed: number, progress?: Progress): Report {
-  const styles: Style[] = ['schwer', 'flink', 'speer'];
+  const styles: Style[] = ['heavy', 'swift', 'spear'];
   const rows: (string | number)[][] = [];
   let worst = 0;
   let step = 0;
@@ -253,17 +254,17 @@ export function styleCheck(cfg: Config, fights: number, seed: number, progress?:
       const b = makeGladiator({ style: styles[j], base: even(7) });
       const m = massSim(a, b, fights, deriveSeed(seed, step), cfg);
       worst = Math.max(worst, Math.abs(m.p - 0.5));
-      rows.push([styles[i], styles[j], pct(m.p), pp(m.p - 0.5), `${m.avgSeconds.toFixed(1)} s`]);
+      rows.push([STYLE_NAMES[styles[i]], STYLE_NAMES[styles[j]], pct(m.p), pp(m.p - 0.5), `${m.avgSeconds.toFixed(1)} s`]);
       step++;
       progress?.(step, 3);
     }
   }
   return {
-    id: 'stile',
-    title: 'Kampfstile bei gleicher Kraft',
+    id: 'styles',
+    title: 'Fighting styles at equal power',
     ok: worst <= 0.03,
-    summary: ['Alle Stats auf 7, jeder Stil mit seiner Lieblingsdistanz. Ziel: höchstens 3 Prozentpunkte Abstand zu 50 %.'],
-    head: ['Stil A', 'Stil B', 'A gewinnt', 'Abstand (pp)', 'Kampfdauer'],
+    summary: ['All stats at 7, each style at its preferred distance. Target: at most 3 percentage points from 50 %.'],
+    head: ['Style A', 'Style B', 'A wins', 'vs 50 % (pp)', 'Fight length'],
     rows,
   };
 }
@@ -271,8 +272,8 @@ export function styleCheck(cfg: Config, fights: number, seed: number, progress?:
 
 /** 6. Letztes Gefecht: Ist „Alles geben“ oder „Durchhalten“ besser als Normal? Beides soll eine Wahl sein, keine Pflicht. */
 export function lastStandCheck(cfg: Config, fights: number, seed: number, progress?: Progress): Report {
-  const opts: LastStand[] = ['normal', 'alles', 'durchhalten'];
-  const names: Record<LastStand, string> = { normal: 'Normal', alles: 'Alles geben', durchhalten: 'Durchhalten' };
+  const opts: LastStand[] = ['normal', 'allIn', 'holdOut'];
+  const names = LAST_STAND_NAMES;
   const rows: (string | number)[][] = [];
   let worst = 0;
   let step = 0;
@@ -288,43 +289,43 @@ export function lastStandCheck(cfg: Config, fights: number, seed: number, progre
     }
   }
   return {
-    id: 'gefecht',
-    title: 'Letztes Gefecht',
+    id: 'lastStand',
+    title: 'Last Stand',
     ok: worst <= 0.03,
     summary: [
-      `Unter ${Math.round(cfg.lastStand.threshold * 100)} % HP greift die Anweisung. Ziel: keine Wahl ist mehr als 3 Prozentpunkte besser.`,
+      `The order kicks in below ${Math.round(cfg.lastStand.threshold * 100)} % HP. Target: no choice is more than 3 percentage points better.`,
       noise(fights),
     ],
-    head: ['Anweisung A', 'Anweisung B', 'A gewinnt', 'Abstand (pp)'],
+    head: ['Order A', 'Order B', 'A wins', 'vs 50 % (pp)'],
     rows,
   };
 }
 
 /** 7. Was bringt die passende Distanz? Jeder Stil mit Lieblingsdistanz gegen sich selbst mit der falschen. */
 export function distanceCheck(cfg: Config, fights: number, seed: number, progress?: Progress): Report {
-  const styles: Style[] = ['schwer', 'flink', 'speer'];
+  const styles: Style[] = ['heavy', 'swift', 'spear'];
   const rows: (string | number)[][] = [];
   let ok = true;
   styles.forEach((st, i) => {
     const good = cfg.styles[st].prefers;
-    const bad = good === 'nah' ? 'fern' : 'nah';
+    const bad = good === 'near' ? 'far' : 'near';
     const a = makeGladiator({ style: st, base: even(7), orders: { distance: good } });
     const b = makeGladiator({ style: st, base: even(7), orders: { distance: bad } });
     const m = massSim(a, b, fights, deriveSeed(seed, i), cfg);
     const d = m.p - 0.5;
     if (d < 0 || d > 0.05) ok = false;
-    rows.push([st, good, bad, pct(m.p), pp(d)]);
+    rows.push([STYLE_NAMES[st], DISTANCE_NAMES[good], DISTANCE_NAMES[bad], pct(m.p), pp(d)]);
     progress?.(i + 1, 3);
   });
   return {
-    id: 'distanz',
-    title: 'Passende Distanz',
+    id: 'distance',
+    title: 'Preferred distance',
     ok,
     summary: [
-      `Passende Distanz gibt +${Math.round(cfg.distanceBonus * 100)} % Schaden. Ziel: ein kleiner, spürbarer Vorteil von 0 bis +5 Prozentpunkten.`,
+      `The preferred distance gives +${Math.round(cfg.distanceBonus * 100)} % damage. Target: a small but real edge of 0 to +5 percentage points.`,
       noise(fights),
     ],
-    head: ['Stil', 'Passend', 'Falsch', 'Passend gewinnt', 'Vorteil (pp)'],
+    head: ['Style', 'Preferred', 'Wrong', 'Preferred wins', 'Edge (pp)'],
     rows,
   };
 }
@@ -333,19 +334,19 @@ export function distanceCheck(cfg: Config, fights: number, seed: number, progres
 export function stoneLevelCheck(cfg: Config, fights: number, seed: number, progress?: Progress): Report {
   const tests: { label: string; rarity: Rarity; kind: StoneKind }[] = [];
   for (const r of ['epic', 'legendary'] as Rarity[]) {
-    tests.push({ label: 'Krit', rarity: r, kind: { type: 'krit' } });
-    tests.push({ label: 'Blutdurst', rarity: r, kind: { type: 'blutdurst' } });
+    tests.push({ label: 'Crit', rarity: r, kind: { type: 'crit' } });
+    tests.push({ label: 'Bloodthirst', rarity: r, kind: { type: 'bloodthirst' } });
   }
-  for (const t of ['krit', 'blutdurst', 'zorn', 'dornen', 'erstschlag', 'fluch'] as const) {
-    tests.push({ label: t[0].toUpperCase() + t.slice(1), rarity: 'mythic', kind: { type: t } as StoneKind });
+  for (const t of ['crit', 'bloodthirst', 'wrath', 'thorns', 'firstStrike', 'curse'] as const) {
+    tests.push({ label: STONE_NAMES[t], rarity: 'mythic', kind: { type: t } as StoneKind });
   }
   // Verschiedene Bauarten, denn bei gleichen Stats skaliert die Simulation exakt mit und alle Stufen wären gleich.
   const builds: { name: string; base: Stats }[] = [
-    { name: 'Schwach 3', base: even(3) },
-    { name: 'Glaskanone', base: { atk: 11, def: 3, hp: 4, spd: 9 } },
-    { name: 'Panzer', base: { atk: 3, def: 11, hp: 11, spd: 3 } },
-    { name: 'Wirbel', base: { atk: 4, def: 5, hp: 5, spd: 13 } },
-    { name: 'Stark 11', base: even(11) },
+    { name: 'Weak 3', base: even(3) },
+    { name: 'Glass Cannon', base: { atk: 11, def: 3, hp: 4, spd: 9 } },
+    { name: 'Tank', base: { atk: 3, def: 11, hp: 11, spd: 3 } },
+    { name: 'Whirlwind', base: { atk: 4, def: 5, hp: 5, spd: 13 } },
+    { name: 'Strong 11', base: even(11) },
   ];
   const rows: (string | number)[][] = [];
   let ok = true;
@@ -362,43 +363,43 @@ export function stoneLevelCheck(cfg: Config, fights: number, seed: number, progr
     const mean = kfs.reduce((a, b) => a + b, 0) / kfs.length;
     const top = Math.max(...kfs);
     // Ein Stein darf bei einer Bauart schwächer sein (Vielfalt), aber nirgends übermächtig und im Schnitt passend.
-    const verdict = top > set + cfg.stoneTolerance * 2.5 ? `zu stark bei ${builds[kfs.indexOf(top)].name}` : Math.abs(mean - set) > cfg.stoneTolerance ? (mean > set ? 'im Schnitt zu stark' : 'im Schnitt zu schwach') : 'passt';
-    if (verdict !== 'passt') ok = false;
+    const verdict = top > set + cfg.stoneTolerance * 2.5 ? `too strong for ${builds[kfs.indexOf(top)].name}` : Math.abs(mean - set) > cfg.stoneTolerance ? (mean > set ? 'too strong on average' : 'too weak on average') : 'fits';
+    if (verdict !== 'fits') ok = false;
     rows.push([t.label, RARITY_NAMES[t.rarity], ...kfs.map((k) => `×${k.toFixed(3)}`), `×${mean.toFixed(3)}`, `×${set.toFixed(3)}`, verdict]);
   }
   return {
-    id: 'steinstufen',
-    title: 'Steine bei schwachen und starken Gladiatoren',
+    id: 'stoneBuilds',
+    title: 'Stones across builds',
     ok,
     summary: [
-      `Gemessener K-Faktor bei verschiedenen Bauarten (ATK/DEF/HP/SPD): ${builds.map((b) => `${b.name} ${b.base.atk}/${b.base.def}/${b.base.hp}/${b.base.spd}`).join(', ')}.`,
-      `Ziel: im Schnitt höchstens ${cfg.stoneTolerance.toFixed(2)} neben dem Aufschlag und bei keiner Bauart mehr als ${(cfg.stoneTolerance * 2.5).toFixed(2)} darüber. Schwächer bei einer Bauart ist erlaubt, das sorgt für Vielfalt.`,
+      `Measured K factor for different builds (ATK/DEF/HP/SPD): ${builds.map((b) => `${b.name} ${b.base.atk}/${b.base.def}/${b.base.hp}/${b.base.spd}`).join(', ')}.`,
+      `Target: within ${cfg.stoneTolerance.toFixed(2)} of the bonus on average and never more than ${(cfg.stoneTolerance * 2.5).toFixed(2)} above it for any build. Weaker for one build is fine, that is build variety.`,
       noise(fights),
     ],
-    head: ['Stein', 'Seltenheit', ...builds.map((b) => b.name), 'Schnitt', 'Eingestellt', 'Ergebnis'],
+    head: ['Stone', 'Rarity', ...builds.map((b) => b.name), 'Average', 'Configured', 'Result'],
     rows,
   };
 }
 
-export type AnalysisId = 'formel' | 'haltung' | 'steine' | 'steinstufen' | 'gefecht' | 'distanz' | 'klassen' | 'stile';
+export type AnalysisId = 'formula' | 'stance' | 'stones' | 'stoneBuilds' | 'lastStand' | 'distance' | 'classes' | 'styles';
 
 export function runAnalysis(id: AnalysisId, cfg: Config, fights: number, seed: number, progress?: Progress): Report {
   switch (id) {
-    case 'formel':
+    case 'formula':
       return formulaCheck(cfg, 240, Math.max(300, Math.round(fights / 10)), seed, progress);
-    case 'haltung':
+    case 'stance':
       return stanceCheck(cfg, fights, seed, progress);
-    case 'steine':
+    case 'stones':
       return stoneCheck(cfg, fights, seed, 8, progress);
-    case 'klassen':
+    case 'classes':
       return classEdgeCheck(cfg, fights, seed, progress);
-    case 'stile':
+    case 'styles':
       return styleCheck(cfg, fights, seed, progress);
-    case 'gefecht':
+    case 'lastStand':
       return lastStandCheck(cfg, fights, seed, progress);
-    case 'distanz':
+    case 'distance':
       return distanceCheck(cfg, fights, seed, progress);
-    case 'steinstufen':
+    case 'stoneBuilds':
       return stoneLevelCheck(cfg, Math.max(2000, Math.round(fights / 2)), seed, progress);
   }
 }

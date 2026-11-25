@@ -1,7 +1,7 @@
 // Effektive Stats, Kampfkraft K, Arena-Klasse und Formel-Siegchance.
 
 import type { Config } from './config';
-import type { Gladiator, Rarity, Stats, Stone, StatKey } from './types';
+import type { Gladiator, Stats, Stone, StatKey } from './types';
 
 export const STAT_KEYS: StatKey[] = ['atk', 'def', 'hp', 'spd'];
 
@@ -57,10 +57,4 @@ export function kFactorFromP(p: number, exponent: number): number {
   return Math.pow(q / (1 - q), 1 / exponent);
 }
 
-export const RARITY_NAMES: Record<Rarity, string> = {
-  common: 'Gewöhnlich',
-  rare: 'Selten',
-  epic: 'Episch',
-  legendary: 'Legendär',
-  mythic: 'Mythisch',
-};
+export { RARITY_NAMES } from './names';

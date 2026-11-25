@@ -13,9 +13,9 @@ import { effectiveStats, specialStones } from './stats';
 import type { FightEvent, FightResult, Gladiator, Stance } from './types';
 
 const BEATS: Record<Stance, Stance> = {
-  aggressiv: 'ausweichend',
-  ausweichend: 'defensiv',
-  defensiv: 'aggressiv',
+  aggressive: 'evasive',
+  evasive: 'defensive',
+  defensive: 'aggressive',
 };
 
 interface Fighter {
@@ -30,9 +30,9 @@ interface Fighter {
   crit: number;
   lifesteal: number;
   thorns: number;
-  zorn: number;
+  wrath: number;
   firstStrike: boolean;
-  lastStand: 'normal' | 'alles' | 'durchhalten';
+  lastStand: 'normal' | 'allIn' | 'holdOut';
   inLastStand: boolean;
   hits: number;
 }
@@ -48,10 +48,10 @@ function build(g: Gladiator, foe: Gladiator, cfg: Config): Fighter {
   let dmgMult = stance.dmg;
   if (BEATS[g.orders.stance] === foe.orders.stance) dmgMult *= cfg.counterDmg;
   if (style.prefers === g.orders.distance) dmgMult *= 1 + cfg.distanceBonus;
-  if (foeSpecials.some((x) => x.kind.type === 'fluch')) dmgMult *= cfg.stones.fluch;
+  if (foeSpecials.some((x) => x.kind.type === 'curse')) dmgMult *= cfg.stones.curse;
 
-  const krit = has('krit');
-  const blut = has('blutdurst');
+  const krit = has('crit');
+  const blut = has('bloodthirst');
   const rate = cfg.sim.attacksPerSecond * (1 + s.spd / (2 * s.atk)) * style.rate;
   const maxHp = cfg.sim.hpPerPoint * s.hp;
 
@@ -64,11 +64,11 @@ function build(g: Gladiator, foe: Gladiator, cfg: Config): Fighter {
     dmgMult,
     takenMult: stance.taken * (s.hp / (s.hp + s.def)),
     dodge: Math.min(cfg.sim.dodgeCap, cfg.sim.dodgeChance + stance.dodge),
-    crit: Math.min(cfg.sim.critCap, cfg.sim.critChance + (krit ? cfg.stones.krit[krit.rarity] ?? 0 : 0)),
-    lifesteal: blut ? cfg.stones.blutdurst[blut.rarity] ?? 0 : 0,
-    thorns: has('dornen') ? cfg.stones.dornen : 0,
-    zorn: has('zorn') ? cfg.stones.zornMax : 0,
-    firstStrike: !!has('erstschlag'),
+    crit: Math.min(cfg.sim.critCap, cfg.sim.critChance + (krit ? cfg.stones.crit[krit.rarity] ?? 0 : 0)),
+    lifesteal: blut ? cfg.stones.bloodthirst[blut.rarity] ?? 0 : 0,
+    thorns: has('thorns') ? cfg.stones.thorns : 0,
+    wrath: has('wrath') ? cfg.stones.wrathMax : 0,
+    firstStrike: !!has('firstStrike'),
     lastStand: g.orders.lastStand,
     inLastStand: false,
     hits: 0,
@@ -116,7 +116,7 @@ export function simulate(a: Gladiator, b: Gladiator, seed: number, cfg: Config, 
     const crit = rng() < att.crit;
     let dmg = att.hitDmg * att.dmgMult * (1 + cfg.sim.dmgSpread * (2 * rng() - 1));
     if (crit) dmg *= cfg.sim.critMult;
-    if (att.zorn) dmg *= 1 + att.zorn * (1 - att.hp / att.maxHp);
+    if (att.wrath) dmg *= 1 + att.wrath * (1 - att.hp / att.maxHp);
     const la = lsMod(att);
     if (la) dmg *= la.dmg;
     dmg *= def.takenMult;
@@ -124,7 +124,7 @@ export function simulate(a: Gladiator, b: Gladiator, seed: number, cfg: Config, 
     const lucky = cfg.sim.luckyChance > 0 && rng() < cfg.sim.luckyChance * att.interval * cfg.sim.attacksPerSecond;
     if (lucky) dmg += def.maxHp * cfg.sim.luckyHpFrac;
     // Erstschlag: fester Anteil der gegnerischen HP, damit er bei jeder Bauart ähnlich viel wert ist.
-    if (first) dmg += def.maxHp * cfg.stones.erstschlagHpFrac;
+    if (first) dmg += def.maxHp * cfg.stones.firstStrikeHpFrac;
     const ld = lsMod(def);
     if (ld) dmg *= ld.taken;
     const d = Math.max(1, Math.round(dmg));
@@ -152,7 +152,7 @@ export function simulate(a: Gladiator, b: Gladiator, seed: number, cfg: Config, 
 
   let tick = 0;
   let winner: 0 | 1 | null = null;
-  let reason: 'ko' | 'zeit' = 'ko';
+  let reason: 'ko' | 'time' = 'ko';
   for (; tick <= maxTicks && winner === null; tick++) {
     const t = tick / tps;
     // Wer zuerst dran ist, entscheidet bei Gleichstand der Zufall.
@@ -169,7 +169,7 @@ export function simulate(a: Gladiator, b: Gladiator, seed: number, cfg: Config, 
     }
   }
   if (winner === null) {
-    reason = 'zeit';
+    reason = 'time';
     const pa = f[0].hp / f[0].maxHp;
     const pb = f[1].hp / f[1].maxHp;
     winner = pa === pb ? (rng() < 0.5 ? 0 : 1) : pa > pb ? 0 : 1;

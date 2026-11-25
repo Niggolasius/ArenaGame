@@ -27,23 +27,23 @@ export interface Config {
     luckyChance: number; // Wuchttreffer: Chance pro Treffer
     luckyHpFrac: number; // Wuchttreffer: Zusatzschaden als Anteil der gegnerischen max HP
   };
-  styles: Record<Style, { dmg: number; rate: number; prefers: 'nah' | 'fern' }>;
+  styles: Record<Style, { dmg: number; rate: number; prefers: 'near' | 'far' }>;
   distanceBonus: number; // Schadensbonus, wenn die Distanz zum Stil passt
   stances: Record<Stance, StanceMod>;
   counterDmg: number; // Schadensfaktor, wenn die eigene Haltung die gegnerische schlägt
   lastStand: {
     threshold: number;
-    alles: { dmg: number; taken: number };
-    durchhalten: { dmg: number; taken: number };
+    allIn: { dmg: number; taken: number };
+    holdOut: { dmg: number; taken: number };
   };
   stones: {
     baseValue: Record<Rarity, number>;
-    krit: Partial<Record<Rarity, number>>; // zusätzliche Krit-Chance
-    blutdurst: Partial<Record<Rarity, number>>; // Anteil des Schadens als Heilung
-    zornMax: number; // Schadensbonus bei 0 % HP, linear
-    dornen: number; // Anteil des erlittenen Schadens, der zurückgeht
-    fluch: number; // Schadensfaktor für den Gegner
-    erstschlagHpFrac: number; // erster Treffer: Zusatzschaden als Anteil der gegnerischen max HP, nicht ausweichbar
+    crit: Partial<Record<Rarity, number>>; // zusätzliche Krit-Chance
+    bloodthirst: Partial<Record<Rarity, number>>; // Anteil des Schadens als Heilung
+    wrathMax: number; // Schadensbonus bei 0 % HP, linear
+    thorns: number; // Anteil des erlittenen Schadens, der zurückgeht
+    curse: number; // Schadensfaktor für den Gegner
+    firstStrikeHpFrac: number; // erster Treffer: Zusatzschaden als Anteil der gegnerischen max HP, nicht ausweichbar
   };
   /** Kraft-Aufschlag für Sondersteine bei der Berechnung von K (Klassen, Anzeige). */
   kSurcharge: Partial<Record<Rarity, number>>;
@@ -78,30 +78,30 @@ export const DEFAULT_CONFIG: Config = {
     luckyHpFrac: 0.3,
   },
   styles: {
-    schwer: { dmg: 1.33, rate: 1 / 1.35, prefers: 'nah' },
-    flink: { dmg: 0.75, rate: 1 / 0.75, prefers: 'nah' },
-    speer: { dmg: 1, rate: 1, prefers: 'fern' },
+    heavy: { dmg: 1.33, rate: 1 / 1.35, prefers: 'near' },
+    swift: { dmg: 0.75, rate: 1 / 0.75, prefers: 'near' },
+    spear: { dmg: 1, rate: 1, prefers: 'far' },
   },
   distanceBonus: 0.03,
   stances: {
-    aggressiv: { dmg: 1.12, taken: 1.12, dodge: 0 },
-    ausweichend: { dmg: 0.86, taken: 1, dodge: 0.1 },
-    defensiv: { dmg: 0.88, taken: 0.88, dodge: 0 },
+    aggressive: { dmg: 1.12, taken: 1.12, dodge: 0 },
+    evasive: { dmg: 0.86, taken: 1, dodge: 0.1 },
+    defensive: { dmg: 0.88, taken: 0.88, dodge: 0 },
   },
   counterDmg: 1.13,
   lastStand: {
     threshold: 0.25,
-    alles: { dmg: 1.3, taken: 1.3 },
-    durchhalten: { dmg: 0.75, taken: 0.75 },
+    allIn: { dmg: 1.3, taken: 1.3 },
+    holdOut: { dmg: 0.75, taken: 0.75 },
   },
   stones: {
     baseValue: { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 4 },
-    krit: { epic: 0.2, legendary: 0.29, mythic: 0.34 },
-    blutdurst: { epic: 0.15, legendary: 0.24, mythic: 0.27 },
-    zornMax: 0.6,
-    dornen: 0.22,
-    fluch: 0.76,
-    erstschlagHpFrac: 0.14,
+    crit: { epic: 0.2, legendary: 0.29, mythic: 0.34 },
+    bloodthirst: { epic: 0.15, legendary: 0.24, mythic: 0.27 },
+    wrathMax: 0.6,
+    thorns: 0.22,
+    curse: 0.76,
+    firstStrikeHpFrac: 0.14,
   },
   kSurcharge: { epic: 1.08, legendary: 1.12, mythic: 1.14 },
   maxSpecialStones: 1,
@@ -113,7 +113,7 @@ export const DEFAULT_CONFIG: Config = {
   arena: {
     classes: [
       { id: 'bronze', name: 'Bronze', minK: 0, maxK: 8, stake: 50, stoneRarity: 'common' },
-      { id: 'silber', name: 'Silber', minK: 8, maxK: 12, stake: 300, stoneRarity: 'rare' },
+      { id: 'silver', name: 'Silver', minK: 8, maxK: 12, stake: 300, stoneRarity: 'rare' },
       { id: 'gold', name: 'Gold', minK: 12, maxK: 16, stake: 2000, stoneRarity: 'epic' },
       { id: 'champion', name: 'Champion', minK: 16, maxK: 999, stake: 10000, stoneRarity: 'legendary' },
     ],
