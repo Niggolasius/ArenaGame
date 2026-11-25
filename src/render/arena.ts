@@ -34,6 +34,10 @@ export interface ArenaOptions {
   onDecision?: (choice: MercyChoice, outcome: MercyOutcome, at: number) => void;
   onReplay?: () => void;
   onNewFight?: () => void;
+  /** Beschriftung des rechten Knopfs im Ergebnis (Standard „Next fight ▸“). */
+  nextLabel?: string;
+  /** Zusätzlicher Hinweis im Ergebnis, z. B. dass der Loot im Postfach liegt. */
+  note?: string;
 }
 
 // ---------- Sprite-Sheets laden ----------
@@ -1466,6 +1470,12 @@ export class ArenaView {
     if (o.butcher) box.append(line(UI.butcherPts, `+${o.butcher}`, 'bad'));
     if (o.loserDies) box.append(line(l.name, `dies · ${UI.fullLoot}`, 'bad'));
     else box.append(line(l.name, `lives · ${UI.scar} −${o.scar}`, ''));
+    if (this.opts.note) {
+      const n = document.createElement('div');
+      n.className = 'sum-note';
+      n.textContent = this.opts.note;
+      box.append(n);
+    }
     const row = document.createElement('div');
     row.className = 'sum-actions';
     const replay = document.createElement('button');
@@ -1477,7 +1487,7 @@ export class ArenaView {
     };
     const next = document.createElement('button');
     next.className = 'btn gold';
-    next.textContent = 'Next fight ▸';
+    next.textContent = this.opts.nextLabel ?? 'Next fight ▸';
     next.onclick = () => {
       sfx.click();
       this.opts.onNewFight?.();

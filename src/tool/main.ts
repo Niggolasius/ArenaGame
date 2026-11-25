@@ -19,9 +19,16 @@ import {
   specialStones,
   STAT_KEYS,
 } from '../sim/stats';
+import type { MercyChoice } from '../sim/names';
 import type { Distance, FightEvent, FightResult, Gladiator, LastStand, Rarity, Slot, Stance, StatKey, Stone, Style } from '../sim/types';
 import { formatMoney, DISTANCE_NAMES, LAST_STAND_NAMES, SLOT_NAMES, STANCE_NAMES, STAT_NAMES, STONE_NAMES, STYLE_NAMES } from '../sim/names';
-import { renderArena, playArena, stopArena } from './arenaTab';
+import { renderArena, playArena, setMailReplay, stopArena } from './arenaTab';
+import { autoChoice, postFight } from '../sim/game';
+import { badgeCount, changed as gameChanged, gs, initGame, on as onGame } from './gameCtl';
+import { renderIsland, stopIsland } from './islandTab';
+import { renderInventory } from './inventoryTab';
+import { focusUnread, renderMail, selectMail, stopMail } from './mailTab';
+import { toast } from './lootUi';
 import { setMuted, sfx, unlockAudio } from '../render/audio';
 import { loadConfig, loadState, mergeConfig, saveConfig, saveState } from './store';
 import type { WorkerRequest } from './worker';
@@ -41,7 +48,7 @@ const SPECIAL_NAMES = STONE_NAMES;
 // ---------- Zustand ----------
 
 interface State {
-  tab: 'duel' | 'arena' | 'analyses' | 'config';
+  tab: 'island' | 'inventory' | 'mail' | 'duel' | 'arena' | 'analyses' | 'config';
   a: Gladiator;
   b: Gladiator;
   seed: number;
@@ -62,7 +69,7 @@ function withSlots(g: Gladiator): Gladiator {
 
 const saved = loadState<State>();
 const state: State = {
-  tab: (saved?.tab as State['tab'] | undefined) && ['duel', 'arena', 'analyses', 'config'].includes(saved!.tab) ? saved!.tab : 'duel',
+  tab: (saved?.tab as State['tab'] | undefined) && ['island', 'inventory', 'mail', 'duel', 'arena', 'analyses', 'config'].includes(saved!.tab) ? saved!.tab : 'island',
   a: withSlots(saved?.a ?? makeGladiator({ name: 'Brutus', style: 'heavy', base: { atk: 7, def: 6, hp: 7, spd: 4 } })),
   b: withSlots(saved?.b ?? makeGladiator({ name: 'Velox', style: 'swift', base: { atk: 5, def: 5, hp: 6, spd: 9 } })),
   seed: saved?.seed ?? 1,
@@ -75,7 +82,43 @@ const state: State = {
 };
 setMuted(!state.sound);
 const persist = () => saveState(state);
-const arena = { get state() { return state; }, get cfg() { return cfg; }, persist };
+initGame(() => cfg);
+
+function gotoTab(tab: State['tab']) {
+  state.tab = tab;
+  persist();
+  render();
+}
+
+const arena = {
+  get state() {
+    return state;
+  },
+  get cfg() {
+    return cfg;
+  },
+  persist,
+  onFightDone(a: Gladiator, b: Gladiator, seed: number, choice: MercyChoice, at: number) {
+    postFight(gs(), a, b, seed, cfg, choice, at, { watched: true });
+    gameChanged();
+    sfx.mail();
+  },
+  fightUnseen(n: number) {
+    unlockAudio();
+    for (let i = 0; i < n; i++) {
+      const seed = (Math.random() * 2 ** 32) >>> 0;
+      postFight(gs(), state.a, state.b, seed, cfg, autoChoice(state.a, state.b, seed, cfg));
+    }
+    gameChanged();
+    sfx.mail();
+    toast(n === 1 ? 'Fight finished · check your mailbox' : `${n} fights finished · check your mailbox`);
+  },
+  backToMail(mailId: number) {
+    setMailReplay(null);
+    selectMail(mailId);
+    gotoTab('mail');
+  },
+};
 
 // ---------- Worker ----------
 
@@ -142,12 +185,15 @@ function render() {
     h(
       'header',
       { class: 'top' },
-      h('div', { class: 'brand' }, h('span', { class: 'logo' }, '⚔'), h('div', {}, h('h1', {}, 'Arena'), h('small', {}, 'Test Tool · Milestone 2'))),
+      h('div', { class: 'brand' }, h('span', { class: 'logo' }, '⚔'), h('div', {}, h('h1', {}, 'Arena'), h('small', {}, 'Test Tool · Milestone 3'))),
       h(
         'nav',
         { class: 'tabs' },
         ...(
           [
+            ['island', 'Island'],
+            ['inventory', 'Inventory'],
+            ['mail', 'Mailbox'],
             ['duel', 'Duel'],
             ['arena', 'Arena'],
             ['analyses', 'Analyses'],
@@ -157,30 +203,66 @@ function render() {
           h(
             'button',
             {
-              class: `tab ${state.tab === id ? 'on' : ''}`,
+              id: `tab-${id}`,
+              class: `tab ${state.tab === id ? 'on' : ''} ${id === 'duel' ? 'tab-gap' : ''}`,
               onclick: () => {
                 sfx.click();
-                state.tab = id;
-                persist();
-                render();
+                if (id === 'arena') setMailReplay(null);
+                if (id === 'mail') focusUnread();
+                gotoTab(id);
               },
             },
             label,
+            id === 'mail' ? h('span', { id: 'mail-badge', class: 'badge-red hidden' }) : null,
           ),
         ),
       ),
+      h('div', { id: 'wallet', class: 'wallet-chip', title: 'Your gold' }),
       h('button', { class: 'btn ghost cancel', onclick: cancelJob, title: 'Cancel the running job' }, 'Cancel'),
     ),
     h('div', { class: 'progress' }, h('div', { id: 'progress' })),
     h('main', { id: 'view' }),
   );
   const view = $('view');
-  if (state.tab !== 'arena') stopArena();
-  if (state.tab === 'duel') renderDuel(view);
+  if (state.tab !== 'arena') {
+    stopArena();
+    setMailReplay(null);
+  }
+  stopIsland();
+  stopMail();
+  refreshHeader();
+  if (state.tab === 'island') renderIsland(view, { cfg: () => cfg, goto: gotoTab });
+  else if (state.tab === 'inventory') renderInventory(view, { cfg: () => cfg, gladiators: () => [state.a, state.b], goto: gotoTab });
+  else if (state.tab === 'mail') renderMail(view, { cfg: () => cfg, replay: (f, id) => { setMailReplay(f, id); state.tab = 'arena'; persist(); render(); } });
+  else if (state.tab === 'duel') renderDuel(view);
   else if (state.tab === 'arena') renderArena(view, arena);
   else if (state.tab === 'analyses') renderAnalyses(view);
   else renderConfig(view);
 }
+
+/** Geld und rote Zahl am Postfach ohne die ganze Seite neu zu bauen. */
+let lastBadge = -1;
+function refreshHeader() {
+  const g = gs();
+  const badge = document.getElementById('mail-badge');
+  const n = badgeCount();
+  if (badge) {
+    badge.textContent = String(n);
+    badge.classList.toggle('hidden', n === 0);
+    if (n > lastBadge && lastBadge >= 0) {
+      badge.classList.remove('pulse');
+      void badge.offsetWidth;
+      badge.classList.add('pulse');
+    }
+  }
+  lastBadge = n;
+  const w = document.getElementById('wallet');
+  if (w) {
+    w.textContent = `● ${money(g.silver)}`;
+    w.classList.toggle('neg', g.silver < 0);
+  }
+}
+onGame({ change: refreshHeader });
 
 // ---------- Duell ----------
 

@@ -73,3 +73,28 @@ export const SPRITES: Record<Style, SpriteDef> = {
 };
 
 export const ROW_NAMES = ['idle', 'walk', 'attack', 'hit', 'death', 'cheer', 'help', 'head', 'deathHeadless'];
+
+/**
+ * Der Arbeiter in der Mine. Gleiches Prinzip wie bei den Gladiatoren: ohne `src` Platzhalter.
+ * Zeile 0 Schlag mit der Spitzhacke (`hitFrame` = Aufprall, liegt im Takt des Durchgangs),
+ * Zeile 1 Sitzen/Schlafen (volles Lager), Zeile 2 Stehen. Ein Pet statt Arbeiter geht genauso.
+ */
+export interface MinerDef {
+  src?: string;
+  frameW: number;
+  frameH: number;
+  anchorX: number;
+  anchorY: number;
+  anims: { swing: AnimDef; rest: AnimDef; idle: AnimDef };
+}
+export const MINER: MinerDef = {
+  frameW: 32,
+  frameH: 32,
+  anchorX: 16,
+  anchorY: 30,
+  anims: {
+    swing: { row: 0, frames: 6, fps: 0, hitFrame: 4 }, // fps egal: Takt kommt vom Durchgang
+    rest: { row: 1, frames: 2, fps: 1.5, loop: true },
+    idle: { row: 2, frames: 2, fps: 2, loop: true },
+  },
+};

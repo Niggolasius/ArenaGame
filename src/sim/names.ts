@@ -1,5 +1,6 @@
 // Alle Namen, die Spieler sehen. Das Spiel ist auf Englisch.
 
+import type { ResourceId } from './config';
 import type { Distance, LastStand, Rarity, Slot, Stance, StatKey, StoneKind, Style } from './types';
 
 export const RARITY_NAMES: Record<Rarity, string> = {
@@ -78,8 +79,72 @@ export const UI = {
 
 /** Beträge kommen intern in Silber (100 Silber = 1 Gold). */
 export function formatMoney(silver: number): string {
+  if (silver < 0) return `−${formatMoney(-silver)}`;
   const g = Math.floor(silver / 100);
   const s = silver % 100;
   if (g && s) return `${g.toLocaleString('en-US')} Gold ${s} Silver`;
   return g ? `${g.toLocaleString('en-US')} Gold` : `${s} Silver`;
 }
+
+// ---------- Meilenstein 3: Insel, Inventar, Postfach ----------
+
+
+export const RESOURCE_NAMES: Record<ResourceId, string> = {
+  copper: 'Copper Ore',
+  iron: 'Iron Ore',
+  coal: 'Coal',
+  obsidian: 'Obsidian',
+  crystalShard: 'Crystal Shard',
+  starsteel: 'Starsteel',
+};
+
+/** Grundsteine heißen nach dem Stat, Sondersteine nach ihrer Mechanik. */
+export const BASE_STONE_NAMES: Record<StatKey, string> = {
+  atk: 'Ruby of Might',
+  def: 'Sapphire of Hardness',
+  hp: 'Garnet of Vigor',
+  spd: 'Emerald of Haste',
+};
+export const SPECIAL_STONE_NAMES: Record<Exclude<StoneKind['type'], 'base'>, string> = {
+  crit: 'Hawkeye Stone',
+  bloodthirst: 'Bloodthirst Stone',
+  wrath: 'Stone of Wrath',
+  thorns: 'Thorn Stone',
+  firstStrike: 'First Strike Stone',
+  curse: 'Curse Stone',
+};
+export const SPECIAL_STONE_HINTS: Record<Exclude<StoneKind['type'], 'base'>, string> = {
+  crit: 'More critical hits',
+  bloodthirst: 'Heals on hit',
+  wrath: 'More damage at low HP',
+  thorns: 'Reflects damage',
+  firstStrike: 'First hit cannot be dodged',
+  curse: 'Weakens the enemy',
+};
+
+export const MAIL_TABS = { fight: 'Fights', mine: 'Mine', system: 'System' } as const;
+
+export const UI3 = {
+  island: 'Island',
+  inventory: 'Inventory',
+  mailbox: 'Mailbox',
+  collect: 'Collect',
+  storageFull: 'STORAGE FULL',
+  wornOut: 'WORN OUT',
+  run: 'Run',
+  runsLeft: 'runs left',
+  storage: 'Storage',
+  emptyPlot: 'Empty plot',
+  place: 'Place card',
+  kitchenSoon: 'Kitchen · coming in Milestone 4',
+  showResult: 'Show result',
+  watchReplay: 'Watch replay',
+  claimAll: 'Claim all',
+  claimed: 'Claimed',
+  neverExpires: 'Never expires',
+  bonusLoot: 'Bonus Loot',
+  revealHint: 'Revealed one by one, the rarest last',
+  victory: 'VICTORY',
+  defeat: 'DEFEAT',
+  mineHaul: 'Mine haul',
+};
