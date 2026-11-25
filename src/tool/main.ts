@@ -1,6 +1,9 @@
 // Das Test-Tool: Gladiatoren bauen, einzeln und massenhaft kämpfen lassen, Balance-Analysen, alle Zahlen einstellen.
 
 import './style.css';
+import { h } from './dom';
+// inline: der Worker steckt mit in der Datei, damit das Test-Tool auch als einzelne HTML-Datei läuft
+import ArenaWorker from './worker?worker&inline';
 import type { AnalysisId, MassResult, Report } from '../sim/analysis';
 import { simulate } from '../sim/combat';
 import { DEFAULT_CONFIG, type Config } from '../sim/config';
@@ -17,39 +20,19 @@ import {
   STAT_KEYS,
 } from '../sim/stats';
 import type { Distance, FightEvent, FightResult, Gladiator, LastStand, Rarity, Slot, Stance, StatKey, Stone, Style } from '../sim/types';
-import { DISTANCE_NAMES, LAST_STAND_NAMES, SLOT_NAMES, STANCE_NAMES, STAT_NAMES, STONE_NAMES, STYLE_NAMES } from '../sim/names';
+import { formatMoney, DISTANCE_NAMES, LAST_STAND_NAMES, SLOT_NAMES, STANCE_NAMES, STAT_NAMES, STONE_NAMES, STYLE_NAMES } from '../sim/names';
+import { renderArena, playArena, stopArena } from './arenaTab';
+import { setMuted, sfx, unlockAudio } from '../render/audio';
 import { loadConfig, loadState, mergeConfig, saveConfig, saveState } from './store';
 import type { WorkerRequest } from './worker';
 
 // ---------- kleine Helfer ----------
 
-type Child = Node | string | number | null | undefined | false;
-function h<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  props: Record<string, unknown> = {},
-  ...children: Child[]
-): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(props)) {
-    if (v === undefined || v === null || v === false) continue;
-    if (k === 'class') el.className = String(v);
-    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v as EventListener);
-    else if (k in el) (el as unknown as Record<string, unknown>)[k] = v;
-    else el.setAttribute(k, String(v));
-  }
-  for (const c of children) if (c !== null && c !== undefined && c !== false) el.append(c instanceof Node ? c : String(c));
-  return el;
-}
 const $ = (id: string) => document.getElementById(id)!;
 const num = (v: number, d = 1) => v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (v: number, d = 1) => `${num(v * 100, d)} %`;
 const pp = (v: number) => `${v >= 0 ? '+' : '−'}${num(Math.abs(v * 100))} pp`;
-function money(silver: number): string {
-  const g = Math.floor(silver / 100);
-  const s = silver % 100;
-  if (g && s) return `${g.toLocaleString('en-US')} Gold ${s} Silver`;
-  return g ? `${g.toLocaleString('en-US')} Gold` : `${s} Silver`;
-}
+const money = formatMoney;
 
 const SLOTS: Slot[] = ['weapon', 'armor', 'amulet'];
 const RARITIES: Rarity[] = ['common', 'rare', 'epic', 'legendary', 'mythic'];
@@ -58,13 +41,16 @@ const SPECIAL_NAMES = STONE_NAMES;
 // ---------- Zustand ----------
 
 interface State {
-  tab: 'duel' | 'analyses' | 'config';
+  tab: 'duel' | 'arena' | 'analyses' | 'config';
   a: Gladiator;
   b: Gladiator;
   seed: number;
   n: number;
   anaN: number;
   anaSeed: number;
+  speed: number;
+  blood: boolean;
+  sound: boolean;
 }
 
 let cfg: Config = loadConfig();
@@ -76,15 +62,20 @@ function withSlots(g: Gladiator): Gladiator {
 
 const saved = loadState<State>();
 const state: State = {
-  tab: (saved?.tab as State['tab'] | undefined) && ['duel', 'analyses', 'config'].includes(saved!.tab) ? saved!.tab : 'duel',
+  tab: (saved?.tab as State['tab'] | undefined) && ['duel', 'arena', 'analyses', 'config'].includes(saved!.tab) ? saved!.tab : 'duel',
   a: withSlots(saved?.a ?? makeGladiator({ name: 'Brutus', style: 'heavy', base: { atk: 7, def: 6, hp: 7, spd: 4 } })),
   b: withSlots(saved?.b ?? makeGladiator({ name: 'Velox', style: 'swift', base: { atk: 5, def: 5, hp: 6, spd: 9 } })),
   seed: saved?.seed ?? 1,
   n: saved?.n ?? 10000,
   anaN: saved?.anaN ?? 10000,
   anaSeed: saved?.anaSeed ?? 1,
+  speed: saved?.speed ?? 1,
+  blood: saved?.blood ?? true,
+  sound: saved?.sound ?? true,
 };
+setMuted(!state.sound);
 const persist = () => saveState(state);
+const arena = { get state() { return state; }, get cfg() { return cfg; }, persist };
 
 // ---------- Worker ----------
 
@@ -94,7 +85,7 @@ let pending: { id: number; resolve: (v: { result: unknown; ms: number }) => void
 
 function getWorker(): Worker {
   if (worker) return worker;
-  worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+  worker = new ArenaWorker();
   worker.onmessage = (e) => {
     const m = e.data;
     if (!pending || m.job !== pending.id) return;
@@ -151,13 +142,14 @@ function render() {
     h(
       'header',
       { class: 'top' },
-      h('div', { class: 'brand' }, h('span', { class: 'logo' }, '⚔'), h('div', {}, h('h1', {}, 'Arena'), h('small', {}, 'Test Tool · Milestone 1'))),
+      h('div', { class: 'brand' }, h('span', { class: 'logo' }, '⚔'), h('div', {}, h('h1', {}, 'Arena'), h('small', {}, 'Test Tool · Milestone 2'))),
       h(
         'nav',
         { class: 'tabs' },
         ...(
           [
             ['duel', 'Duel'],
+            ['arena', 'Arena'],
             ['analyses', 'Analyses'],
             ['config', 'Settings'],
           ] as const
@@ -167,6 +159,7 @@ function render() {
             {
               class: `tab ${state.tab === id ? 'on' : ''}`,
               onclick: () => {
+                sfx.click();
                 state.tab = id;
                 persist();
                 render();
@@ -182,7 +175,9 @@ function render() {
     h('main', { id: 'view' }),
   );
   const view = $('view');
+  if (state.tab !== 'arena') stopArena();
   if (state.tab === 'duel') renderDuel(view);
+  else if (state.tab === 'arena') renderArena(view, arena);
   else if (state.tab === 'analyses') renderAnalyses(view);
   else renderConfig(view);
 }
@@ -387,6 +382,7 @@ function renderDuel(view: HTMLElement) {
       h('button', { class: 'btn small ghost', title: 'New seed', onclick: () => { seedIn.value = String((Math.random() * 1e9) | 0); seedIn.onchange?.(new Event('change')); } }, '🎲'),
     ),
     h('button', { class: 'btn big', onclick: () => singleFight() }, 'Fight'),
+    h('button', { class: 'btn big gold', onclick: () => { unlockAudio(); state.tab = 'arena'; persist(); render(); playArena(arena); } }, 'Watch in Arena ▸'),
     h('h3', {}, 'Mass simulation'),
     h('label', { class: 'inline' }, 'Fights', nIn),
     h('button', { class: 'btn big gold', onclick: () => massFight() }, 'Simulate'),

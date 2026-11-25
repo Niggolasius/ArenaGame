@@ -57,6 +57,20 @@ export interface Config {
     classes: { id: string; name: string; minK: number; maxK: number; stake: number; stoneRarity: Rarity }[];
     arenaShare: number;
   };
+  /** Mercy-Moment nach dem Kampf: Publikumsabstimmung, Bestechung, Ruhm. */
+  mercy: {
+    voteSeconds: number; // höchstens so lange stimmt das Publikum ab; der Sieger darf früher entscheiden
+    npcCrowd: number; // ohne echte Zuschauer: so viele NPC stimmen ab (bringt Ruhm, nie Gold)
+    npcVoteSeconds: number; // so schnell ist das NPC-Publikum fertig
+    spectators: Record<string, number>; // Zuschauer pro Arena-Klasse (id)
+    abstain: number; // Anteil, der nicht abstimmt
+    spareBase: number; // Grundchance für Daumen hoch bei einem einseitigen Kampf
+    spareCloseness: number; // zusätzliche Chance, je knapper der Kampf war
+    bribeMin: number; // Bestechung als Anteil des Einsatzes
+    bribeMax: number;
+    famePerVoter: number; // Ruhm pro abstimmendem Zuschauer, wenn der Sieger der Mehrheit folgt (sonst minus)
+    scar: number; // Stat-Malus für den Verschonten (heilbar)
+  };
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -64,8 +78,8 @@ export const DEFAULT_CONFIG: Config = {
     ticksPerSecond: 20,
     maxSeconds: 90,
     hpPerPoint: 300,
-    dmgPerAtk: 50,
-    attacksPerSecond: 0.35,
+    dmgPerAtk: 25,
+    attacksPerSecond: 0.7,
     dmgSpread: 0.4,
     critChance: 0.15,
     critMult: 2,
@@ -74,7 +88,7 @@ export const DEFAULT_CONFIG: Config = {
     dodgeCap: 0.4,
     startDelayMax: 1.5,
     formSpread: 0.65,
-    luckyChance: 0.15,
+    luckyChance: 0.075,
     luckyHpFrac: 0.3,
   },
   styles: {
@@ -118,6 +132,19 @@ export const DEFAULT_CONFIG: Config = {
       { id: 'champion', name: 'Champion', minK: 16, maxK: 999, stake: 10000, stoneRarity: 'legendary' },
     ],
     arenaShare: 0.1,
+  },
+  mercy: {
+    voteSeconds: 5,
+    npcCrowd: 12,
+    npcVoteSeconds: 2,
+    spectators: { bronze: 40, silver: 70, gold: 110, champion: 150 },
+    abstain: 0.15,
+    spareBase: 0.25,
+    spareCloseness: 0.6,
+    bribeMin: 0.2,
+    bribeMax: 1,
+    famePerVoter: 1,
+    scar: 1,
   },
 };
 
