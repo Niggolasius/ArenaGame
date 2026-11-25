@@ -50,8 +50,8 @@ Beträge stehen intern in Silber (100 Silber = 1 Gold).
 Zeigt den Kampf der beiden Gladiatoren aus dem Duell-Tab mit dem eingestellten Seed. Ablauf:
 
 1. **Einmarsch** mit Einblendung der Tagesform („In Top Form! +40%“).
-2. **Kampf** (~11 s): Angriffs-Animationen treffen genau zum Zeitpunkt der Simulation. Schadenszahlen, Krits (gelb, kurzer Stopp), Crushing Blow (orange, Bildschirmwackeln, Einfrieren, Blitz), Ausweichen, Heilung, Dornen, Last Stand.
-3. **Mercy**: Der Verlierer kniet und bietet Geld. 10 s stimmt das Publikum ab (Köpfe werden grün oder rot). Dann entscheidet der Sieger: *Take the Gold*, *Spare with Honor* oder *Kill*.
+2. **Kampf** (~11 s, etwa 2 Treffer pro Sekunde): Beinarbeit durch die Arena, Ausweich-Rollen, Kamera-Zoom bei Krits, Wuchttreffern und dem letzten Schlag, Herzschlag und roter Rand bei wenig HP. Angriffs-Animationen treffen genau zum Zeitpunkt der Simulation. Schadenszahlen, Krits (gelb, kurzer Stopp), Crushing Blow (orange, Bildschirmwackeln, Einfrieren, Blitz), Ausweichen, Heilung, Dornen, Last Stand.
+3. **Mercy**: Der Verlierer kniet und bietet Geld. Bis zu 5 s stimmt das Publikum ab (Köpfe werden grün oder rot). Der Sieger kann jederzeit entscheiden: *Take the Gold*, *Spare with Honor* oder *Kill*. Wer früh entscheidet, bekommt Ruhm nur für die Stimmen bis dahin. Ohne Zuschauer (in den Einstellungen 0) stimmt ein kleines NPC-Publikum in 2 s ab.
 4. **Finisher**: Heavy köpft, Swift sticht ins Herz, Spear spießt auf. Gold: Der Beutel wird geworfen. Ehrenvoll: aufhelfen und Arm hochreißen.
 5. **Ergebnis**: Ruhm (± pro abstimmendem Zuschauer, je nachdem ob der Sieger der Mehrheit folgt), Gold, Ehre oder Schlächter, Narbe oder Tod mit Full Loot.
 

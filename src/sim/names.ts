@@ -53,6 +53,8 @@ export const UI = {
   victory: 'VICTORY',
   mercy: 'MERCY?',
   crowdDecides: 'The crowd decides',
+  rabbleDecides: 'No spectators · the rabble decides',
+  decideEarly: 'Decide now and only the votes so far count for Fame',
   spare: 'Spare',
   killVote: 'Kill',
   crit: 'CRIT',

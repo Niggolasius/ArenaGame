@@ -29,7 +29,9 @@ export interface ArenaOptions {
   speed: number;
   /** Bei einem Replay steht die Entscheidung schon fest. */
   choice?: MercyChoice;
-  onDecision?: (choice: MercyChoice, outcome: MercyOutcome) => void;
+  /** Bei einem Replay: Sekunden nach Beginn der Abstimmung, zu denen entschieden wurde. */
+  choiceAt?: number;
+  onDecision?: (choice: MercyChoice, outcome: MercyOutcome, at: number) => void;
   onReplay?: () => void;
   onNewFight?: () => void;
 }
@@ -127,6 +129,7 @@ class Fighter {
   lastStand = false;
   hidden = false;
   face: 1 | -1;
+  rot = 0; // Drehung beim Ausweichen (Rolle)
   constructor(
     public side: 0 | 1,
     public g: Gladiator,
@@ -183,6 +186,15 @@ export class ArenaView {
   private flashA = 0;
   private dark = 0;
   private excite = 0.2;
+  // Kamera: Zoom-Stoß bei Krits und Wuchttreffern, Heranfahren beim KO
+  private camZoom = 1;
+  private zoomKick = 0;
+  private zoomHold = 1;
+  private camX = W / 2;
+  private camY = H / 2;
+  private danger = 0;
+  private beatT = 0;
+  private footPhase = 0;
   private turbo = false;
   private time = 0;
   private voteSecond = -1;
@@ -224,6 +236,7 @@ export class ArenaView {
     this.mercy = setupMercy(a, b, this.result, seed, cfg);
     this.seatOf = seatOrder(this.seats.length, seed ^ 0x5eed);
     this.fx = mulberry32(seed ^ 0xbeef);
+    this.footPhase = mulberry32(seed ^ 0xf00d)() * Math.PI * 2;
 
     this.root = document.createElement('div');
     this.root.className = 'arena-stage';
@@ -318,6 +331,7 @@ export class ArenaView {
   // ---------- Ablauf ----------
 
   private setPhase(p: Phase) {
+    if (this.f) for (const x of this.f) x.rot = 0;
     this.phase = p;
     this.phaseT = 0;
     this.turbo = false;
@@ -337,7 +351,7 @@ export class ArenaView {
       this.renderMercyButtons();
       if (this.opts.choice) {
         const c = this.opts.choice;
-        window.setTimeout(() => this.decide(c), 500);
+        window.setTimeout(() => this.decide(c, true), 500);
       }
     } else if (p === 'finisher') {
       this.ui.replaceChildren();
@@ -358,6 +372,7 @@ export class ArenaView {
       dt *= this.slowmo;
     }
     this.shake = Math.max(0, this.shake - dtReal * 18);
+    this.stepCamera(dtReal);
     this.flashA = Math.max(0, this.flashA - dtReal * 3);
     if (this.hitstop > 0) {
       this.hitstop -= dtReal;
@@ -406,12 +421,13 @@ export class ArenaView {
 
   private stepIntro() {
     const t = this.phaseT;
-    const base = this.basePos();
+    const start = this.footwork(-0.45);
     const k = Math.min(1, t / 1.5);
     const e = 1 - Math.pow(1 - k, 2);
     this.f.forEach((x, i) => {
       const from = i === 0 ? -20 : W + 20;
-      x.x = from + (base[i] - from) * e;
+      x.x = from + (start[i].x - from) * e;
+      x.y = FIGHT_Y + (start[i].y - FIGHT_Y) * e;
       x.anim = k < 1 ? 'walk' : 'idle';
       x.animT = t;
     });
@@ -437,12 +453,16 @@ export class ArenaView {
       this.trigger(this.events[this.evIdx++]);
     }
     const t = this.simT;
-    const base = this.basePos();
+    const foot = this.footwork(t);
+    const next = this.footwork(t + 0.06);
     this.f.forEach((x, i) => {
-      x.x = base[i] + Math.sin(t * 1.1 + i * 2) * 1.5;
+      x.x = foot[i].x;
+      x.y = foot[i].y;
       x.ox = 0;
       x.oy = 0;
+      x.rot = 0;
       x.frameOverride = null;
+      const moving = Math.hypot(next[i].x - foot[i].x, next[i].y - foot[i].y) / 0.06 > 7;
       if (this.koT !== null && i === this.loser) {
         x.anim = 'death';
         x.animT = t - this.koT;
@@ -455,7 +475,7 @@ export class ArenaView {
         const a = x.def.anims.attack;
         const wind = windup(a);
         const ft = sw.frameTime;
-        const lunge = { heavy: 7, swift: 10, spear: 6 }[x.g.style];
+        const lunge = { heavy: 11, swift: 14, spear: 9 }[x.g.style];
         const p = ft < wind ? Math.pow(ft / wind, 2) : Math.max(0, 1 - (ft - wind) / Math.max(0.01, a.frames / a.fps - wind));
         x.ox = lunge * p * x.face;
         x.anim = 'attack';
@@ -463,22 +483,35 @@ export class ArenaView {
       } else if (re) {
         const age = t - re.t;
         if (re.kind === 'hit') {
-          const kb = re.lucky ? 10 : re.crit ? 5 : 2.5;
+          const kb = re.lucky ? 14 : re.crit ? 7 : 3.5;
           x.ox = -kb * (1 - age / 0.3) * x.face;
           x.anim = 'hit';
           x.animT = age;
         } else {
-          const s = Math.sin((Math.PI * age) / 0.3);
-          x.ox = -7 * s * x.face;
-          x.oy = -3 * s;
+          // Ausweich-Rolle nach hinten
+          const k = Math.min(1, age / 0.3);
+          const s = Math.sin(Math.PI * k);
+          x.ox = -12 * s * x.face;
+          x.oy = -5 * s;
+          x.rot = -x.face * Math.PI * 2 * k;
           x.anim = 'idle';
           x.animT = t;
         }
       } else {
-        x.anim = 'idle';
+        x.anim = moving ? 'walk' : 'idle';
         x.animT = t + i * 0.37;
       }
     });
+    // Herzschlag, wenn einer fast tot ist
+    const low = this.f.some((x) => x.hp > 0 && x.hp / x.maxHp < this.cfg.lastStand.threshold);
+    this.danger = low && this.koT === null ? Math.min(1, this.danger + dt * 2) : Math.max(0, this.danger - dt * 2);
+    if (this.danger > 0.5) {
+      this.beatT -= dt;
+      if (this.beatT <= 0) {
+        this.beatT = 0.75;
+        sfx.heartbeat();
+      }
+    }
     if (this.simT >= this.endT + 0.9) this.setPhase('down');
   }
 
@@ -495,8 +528,8 @@ export class ArenaView {
         const hy = def.y - 16;
         const col = e.lucky ? '#ff8a3d' : e.crit ? '#ffd04d' : '#ffffff';
         const size = e.lucky ? 13 : e.crit ? 11 : 8;
-        this.popups.push({ x: def.x + (this.fx() * 10 - 5), y: def.y - 30, text: e.dmg.toLocaleString('en-US'), col, size, age: 0, life: e.lucky ? 1.3 : 0.95, vy: -26, font: 'pixel' });
-        if (e.crit) this.popups.push({ x: def.x, y: def.y - 40, text: UI.crit, col: '#ffd04d', size: 6, age: 0, life: 0.8, vy: -18, font: 'pixel' });
+        this.popups.push({ x: def.x + (def.side === 0 ? -10 : 10) + (this.fx() * 6 - 3), y: def.y - 22, text: e.dmg.toLocaleString('en-US'), col, size, age: 0, life: e.lucky ? 1.3 : 0.95, vy: -22, font: 'pixel' });
+        if (e.crit) this.popups.push({ x: def.x + (def.side === 0 ? -10 : 10), y: def.y - 31, text: UI.crit, col: '#ffd04d', size: 6, age: 0, life: 0.8, vy: -18, font: 'pixel' });
         this.slashes.push({ x: hx, y: hy, dir: att.face, age: 0, life: 0.16, big: e.crit || e.lucky, col: e.lucky ? '#ffb26b' : e.crit ? '#fff1a8' : '#ffffff' });
         this.burst(hx, hy, att.face, e.lucky ? 26 : e.crit ? 14 : 7, def.y);
         this.excite = Math.min(1, this.excite + (e.lucky ? 0.8 : e.crit ? 0.35 : 0.12));
@@ -504,11 +537,13 @@ export class ArenaView {
           this.hitstop = 0.16;
           this.shake = 6;
           this.flashA = 0.3;
+          this.zoomKick = 0.22;
           this.addBanner(UI.crushingBlow, undefined, '#ff8a3d', 0.3, 1.2, 20);
           sfx.crushing();
         } else if (e.crit) {
           this.hitstop = 0.06;
           this.shake = 2.5;
+          this.zoomKick = Math.max(this.zoomKick, 0.08);
           sfx.crit();
         } else {
           this.shake = Math.max(this.shake, 0.8);
@@ -560,9 +595,53 @@ export class ArenaView {
 
   private knockout() {
     this.koT = this.simT;
+    this.zoomHold = 1.3;
     this.slowmo = 0.35;
     this.slowmoT = 0.7;
     this.excite = 1;
+  }
+
+  /**
+   * Beinarbeit: Das Paar wandert durch die Arena, dreht sich etwas um seine Mitte
+   * und geht abwechselnd auf Abstand und wieder heran. Rein optisch, ändert nichts am Kampf.
+   */
+  private footwork(t: number): { x: number; y: number }[] {
+    const ph = this.footPhase;
+    const base = this.basePos();
+    const gap0 = base[1] - base[0];
+    const gap = gap0 + 9 * (0.5 + 0.5 * Math.sin(t * 1.7 + ph));
+    const cx = 128 + 18 * Math.sin(t * 0.43 + ph) + 6 * Math.sin(t * 1.21 + ph * 2);
+    const cy = FIGHT_Y - 2 + 6 * Math.sin(t * 0.57 + ph * 3);
+    const ang = 0.45 * Math.sin(t * 0.38 + ph * 1.7);
+    const dx = (Math.cos(ang) * gap) / 2;
+    const dy = Math.sin(ang) * gap * 0.35;
+    return [
+      { x: cx - dx, y: cy - dy },
+      { x: cx + dx, y: cy + dy },
+    ];
+  }
+
+  private stepCamera(dtReal: number) {
+    this.zoomKick = Math.max(0, this.zoomKick - dtReal * 0.9);
+    if (this.phase === 'vote' || this.phase === 'choose' || this.phase === 'done' || this.phase === 'intro') this.zoomHold = 1;
+    const target = Math.max(1 + this.zoomKick, this.zoomHold);
+    this.camZoom += (target - this.camZoom) * Math.min(1, dtReal * (target > this.camZoom ? 14 : 3));
+    if (!this.f) return;
+    const fx = (this.f[0].x + this.f[0].ox + this.f[1].x + this.f[1].ox) / 2;
+    const fy = (this.f[0].y + this.f[1].y) / 2 - 16;
+    const k = Math.min(1, dtReal * 6);
+    this.camX += (fx - this.camX) * k;
+    this.camY += (fy - this.camY) * k;
+  }
+
+  /** Ausschnitt der Welt, den die Kamera zeigt. */
+  private view() {
+    const z = this.camZoom;
+    const vw = W / z;
+    const vh = H / z;
+    const x0 = Math.max(0, Math.min(W - vw, this.camX - vw / 2));
+    const y0 = Math.max(0, Math.min(H - vh, this.camY - vh / 2));
+    return { z, x0, y0, vw, vh };
   }
 
   private stepDown() {
@@ -576,7 +655,7 @@ export class ArenaView {
     w.frameOverride = null;
     w.anim = this.phaseT > 0.4 ? 'cheer' : 'idle';
     w.animT = this.phaseT;
-    if (this.phaseT >= 2.2) this.setPhase('vote');
+    if (this.phaseT >= 1.4) this.setPhase('vote');
   }
 
   private holdKneel() {
@@ -614,14 +693,22 @@ export class ArenaView {
       this.updateVoteButtons();
     }
     this.excite = 0.5;
-    if (t >= this.cfg.mercy.voteSeconds) this.setPhase('choose');
+    // Replay: Entscheidung zur selben Zeit wie beim ersten Ansehen
+    if (this.opts.choice && this.opts.choiceAt !== undefined && t >= this.opts.choiceAt) {
+      this.decide(this.opts.choice, true);
+      return;
+    }
+    if (t >= this.mercy.voteSeconds) this.setPhase('choose');
   }
 
-  decide(choice: MercyChoice) {
-    if (this.phase !== 'choose' || this.choice) return;
+  /** Der Sieger darf schon während der Abstimmung entscheiden. Dann zählen nur die Stimmen bis jetzt. */
+  decide(choice: MercyChoice, auto = false) {
+    if ((this.phase !== 'choose' && this.phase !== 'vote') || this.choice) return;
+    if (this.opts.choice && !auto) return;
+    const at = this.phase === 'vote' ? this.phaseT : Infinity;
     this.choice = choice;
-    this.outcome = resolveMercy(this.mercy, choice, this.cfg);
-    this.opts.onDecision?.(choice, this.outcome);
+    this.outcome = resolveMercy(this.mercy, choice, this.cfg, at);
+    this.opts.onDecision?.(choice, this.outcome, at);
     sfx.click();
     this.setPhase('finisher');
   }
@@ -667,6 +754,7 @@ export class ArenaView {
     if (t < F.walk && c !== 'gold') {
       const k = t / F.walk;
       w.x = F.startX + (F.targetX - F.startX) * k;
+      w.y += (l.y - w.y) * Math.min(1, k * 1.5);
       w.anim = 'walk';
       w.animT = t;
     } else if (c !== 'gold') {
@@ -965,12 +1053,14 @@ export class ArenaView {
     d.fillRect(0, 0, this.canvas.width, this.canvas.height);
     const sx = this.shake ? Math.round((this.fx() - 0.5) * this.shake) * u : 0;
     const sy = this.shake ? Math.round((this.fx() - 0.5) * this.shake) * u : 0;
-    d.drawImage(this.low, sx, sy, W * u, H * u);
+    const v = this.view();
+    d.drawImage(this.low, v.x0, v.y0, v.vw, v.vh, sx, sy, W * u, H * u);
     if (this.flashA > 0) {
       d.fillStyle = `rgba(255,255,255,${this.flashA})`;
       d.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
-    d.setTransform(u, 0, 0, u, sx, sy);
+    if (this.danger > 0) this.drawDanger(d);
+    d.setTransform(u * v.z, 0, 0, u * v.z, sx - v.x0 * u * v.z, sy - v.y0 * u * v.z);
     this.drawPlates(d);
     for (const p of this.popups) this.drawPopup(d, p);
     d.setTransform(u, 0, 0, u, 0, 0);
@@ -978,6 +1068,19 @@ export class ArenaView {
     this.drawVote(d);
     this.drawBribe(d);
     for (const b of this.banners) this.drawBanner(d, b);
+  }
+
+  /** Roter Rand im Herzschlag, solange einer unter der Last-Stand-Grenze ist. */
+  private drawDanger(d: CanvasRenderingContext2D) {
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+    const beat = Math.max(0, 1 - (0.75 - this.beatT) / 0.25);
+    const a = this.danger * (0.22 + 0.25 * beat);
+    const g = d.createRadialGradient(cw / 2, ch / 2, ch * 0.35, cw / 2, ch / 2, cw * 0.62);
+    g.addColorStop(0, 'rgba(120,0,0,0)');
+    g.addColorStop(1, `rgba(150,0,0,${a})`);
+    d.fillStyle = g;
+    d.fillRect(0, 0, cw, ch);
   }
 
   private drawCrowd(c: CanvasRenderingContext2D) {
@@ -1053,6 +1156,11 @@ export class ArenaView {
     }
     c.save();
     c.translate(dx, dy);
+    if (x.rot) {
+      c.translate(0, -12);
+      c.rotate(x.rot);
+      c.translate(0, 12);
+    }
     if (flip) c.scale(-1, 1);
     c.drawImage(this.sprTmp, 0, 0, fw, fh, -def.anchorX, -def.anchorY, fw, fh);
     c.restore();
@@ -1161,7 +1269,7 @@ export class ArenaView {
       if (x.hidden) continue;
       // Namen nicht übereinander: bei engem Abstand nach außen schieben
       const cx = x.x + x.ox - x.face * Math.max(0, 30 - gap) * 0.6;
-      const top = x.y - 38;
+      const top = x.y - 46;
       this.text(d, '♛', cx, top - 7, 6, '#e2b44d', 'sans', 'center', 1.2);
       this.text(d, x.name, cx, top, 5, '#f3e6cc', 'serif', 'center', 1.4);
       // kleiner HP-Balken
@@ -1217,13 +1325,15 @@ export class ArenaView {
 
   private drawVote(d: CanvasRenderingContext2D) {
     if (!['vote', 'choose'].includes(this.phase)) return;
-    const vs = this.cfg.mercy.voteSeconds;
+    const vs = this.mercy.voteSeconds;
     const t = this.phase === 'vote' ? this.phaseT : vs;
     const { spare, kill } = tally(this.mercy.votes, t);
     const cy = 54;
     this.text(d, UI.mercy, W / 2, cy, 12, '#ffd77a', 'serif', 'center', 2.2);
     const left = Math.max(0, Math.ceil(vs - t));
-    this.text(d, this.phase === 'vote' ? `${UI.crowdDecides} · ${left}` : UI.yourCall, W / 2, cy + 10, 5, '#efe4d2', 'sans', 'center', 1.2);
+    const who = this.mercy.npc ? UI.rabbleDecides : UI.crowdDecides;
+    this.text(d, this.phase === 'vote' ? `${who} · ${left}` : UI.yourCall, W / 2, cy + 10, 5, '#efe4d2', 'sans', 'center', 1.2);
+    if (this.phase === 'vote' && !this.opts.choice) this.text(d, UI.decideEarly, W / 2, cy + 27, 3.8, '#cdbd9f', 'sans', 'center', 1);
     const bw = 90;
     const bx = W / 2 - bw / 2;
     const by = cy + 15;
@@ -1322,7 +1432,7 @@ export class ArenaView {
   }
 
   private updateVoteButtons() {
-    const locked = this.phase !== 'choose' || !!this.opts.choice;
+    const locked = !!this.opts.choice;
     for (const b of this.mercyBtns) {
       b.disabled = locked;
       b.classList.toggle('ready', !locked);

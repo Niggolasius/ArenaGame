@@ -17,6 +17,8 @@ export interface MercySetup {
   classId: string;
   stake: number; // Silber
   spectators: number;
+  npc: boolean; // keine echten Zuschauer: kleines NPC-Publikum
+  voteSeconds: number; // wann die Abstimmung spätestens fertig ist
   votes: Vote[]; // nur wer abstimmt, nach Zeit sortiert
   bribe: number; // Angebot des Verlierers in Silber
   spareChance: number; // Chance pro Zuschauer auf Daumen hoch
@@ -48,7 +50,10 @@ export function setupMercy(a: Gladiator, b: Gladiator, r: FightResult, seed: num
   const m = cfg.mercy;
   // Die Klasse richtet sich nach dem Stärkeren, wie bei der Paarung.
   const cls = arenaClass(Math.max(power(a, cfg), power(b, cfg)), cfg);
-  const spectators = Math.max(0, Math.round(m.spectators[cls.id] ?? 60));
+  const real = Math.max(0, Math.round(m.spectators[cls.id] ?? 60));
+  const npc = real === 0;
+  const spectators = npc ? Math.max(0, Math.round(m.npcCrowd)) : real;
+  const voteSeconds = npc ? m.npcVoteSeconds : m.voteSeconds;
   const c = closeness(r);
   const spareChance = Math.max(0.05, Math.min(0.95, m.spareBase + m.spareCloseness * c));
   const votes: Vote[] = [];
@@ -56,13 +61,13 @@ export function setupMercy(a: Gladiator, b: Gladiator, r: FightResult, seed: num
     const abstains = rng() < m.abstain;
     const spare = rng() < spareChance;
     // Die meisten stimmen früh ab, ein paar warten bis zum Schluss: so bleibt es spannend.
-    const t = 0.4 + Math.pow(rng(), 1.6) * (m.voteSeconds - 1);
+    const t = Math.min(0.3, voteSeconds * 0.1) + Math.pow(rng(), 1.6) * voteSeconds * 0.85;
     if (!abstains) votes.push({ seat, t, spare });
   }
   votes.sort((x, y) => x.t - y.t);
   const frac = m.bribeMin + rng() * (m.bribeMax - m.bribeMin);
   const bribe = Math.max(1, Math.round(cls.stake * frac));
-  return { classId: cls.id, stake: cls.stake, spectators, votes, bribe, spareChance, closeness: c };
+  return { classId: cls.id, stake: cls.stake, spectators, npc, voteSeconds, votes, bribe, spareChance, closeness: c };
 }
 
 export function tally(votes: Vote[], untilT = Infinity) {
@@ -76,8 +81,12 @@ export function tally(votes: Vote[], untilT = Infinity) {
   return { spare, kill };
 }
 
-export function resolveMercy(setup: MercySetup, choice: MercyChoice, cfg: Config): MercyOutcome {
-  const { spare, kill } = tally(setup.votes);
+/**
+ * Folgen der Entscheidung. `atT`: Sekunden nach Beginn der Abstimmung. Wer früh entscheidet,
+ * bekommt Ruhm nur für die Stimmen, die bis dahin abgegeben wurden.
+ */
+export function resolveMercy(setup: MercySetup, choice: MercyChoice, cfg: Config, atT = Infinity): MercyOutcome {
+  const { spare, kill } = tally(setup.votes, atT);
   const majority = spare > kill ? 'spare' : kill > spare ? 'kill' : 'tie';
   const spared = choice !== 'kill';
   const followed = majority === 'tie' ? null : (majority === 'spare') === spared;

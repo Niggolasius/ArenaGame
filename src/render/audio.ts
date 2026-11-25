@@ -133,6 +133,10 @@ export const sfx = {
     tone('sine', 70, 25, 1, 0.7);
     noiseHit(200, 0.7, 0.8, 0.5);
   },
+  heartbeat() {
+    tone('sine', 70, 45, 0.5, 0.12);
+    tone('sine', 65, 40, 0.35, 0.12, 0.17);
+  },
   fanfare() {
     [523, 659, 784, 1046].forEach((f, i) => tone('sawtooth', f, f, 0.07, 0.25, i * 0.11));
   },

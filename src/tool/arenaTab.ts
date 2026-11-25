@@ -20,6 +20,7 @@ export interface ArenaCtx {
 
 let view: ArenaView | null = null;
 let lastChoice: MercyChoice | undefined;
+let lastChoiceAt: number | undefined;
 
 export function stopArena() {
   view?.destroy();
@@ -32,12 +33,19 @@ export function playArena(ctx: ArenaCtx, replay = false) {
   stopArena();
   unlockAudio();
   const s = ctx.state;
-  if (!replay) lastChoice = undefined;
+  if (!replay) {
+    lastChoice = undefined;
+    lastChoiceAt = undefined;
+  }
   view = new ArenaView(host, s.a, s.b, s.seed, ctx.cfg, {
     blood: s.blood,
     speed: s.speed,
     choice: replay ? lastChoice : undefined,
-    onDecision: (c) => (lastChoice = c),
+    choiceAt: replay ? lastChoiceAt : undefined,
+    onDecision: (c, _o, at) => {
+      lastChoice = c;
+      lastChoiceAt = Number.isFinite(at) ? at : undefined;
+    },
     onReplay: () => playArena(ctx, true),
     onNewFight: () => {
       s.seed = (Math.random() * 1e9) >>> 0;
