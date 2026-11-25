@@ -57,6 +57,18 @@ export interface Config {
     classes: { id: string; name: string; minK: number; maxK: number; stake: number; stoneRarity: Rarity }[];
     arenaShare: number;
   };
+  /** Mercy-Moment nach dem Kampf: Publikumsabstimmung, Bestechung, Ruhm. */
+  mercy: {
+    voteSeconds: number; // Dauer der Abstimmung
+    spectators: Record<string, number>; // Zuschauer pro Arena-Klasse (id)
+    abstain: number; // Anteil, der nicht abstimmt
+    spareBase: number; // Grundchance für Daumen hoch bei einem einseitigen Kampf
+    spareCloseness: number; // zusätzliche Chance, je knapper der Kampf war
+    bribeMin: number; // Bestechung als Anteil des Einsatzes
+    bribeMax: number;
+    famePerVoter: number; // Ruhm pro abstimmendem Zuschauer, wenn der Sieger der Mehrheit folgt (sonst minus)
+    scar: number; // Stat-Malus für den Verschonten (heilbar)
+  };
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -118,6 +130,17 @@ export const DEFAULT_CONFIG: Config = {
       { id: 'champion', name: 'Champion', minK: 16, maxK: 999, stake: 10000, stoneRarity: 'legendary' },
     ],
     arenaShare: 0.1,
+  },
+  mercy: {
+    voteSeconds: 10,
+    spectators: { bronze: 40, silver: 70, gold: 110, champion: 150 },
+    abstain: 0.15,
+    spareBase: 0.25,
+    spareCloseness: 0.6,
+    bribeMin: 0.2,
+    bribeMax: 1,
+    famePerVoter: 1,
+    scar: 1,
   },
 };
 

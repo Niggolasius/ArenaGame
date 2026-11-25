@@ -1,6 +1,6 @@
 # ArenaGame
 
-Browser-Prototyp eines Arena-Spiels: Gladiatoren kämpfen in Echtzeit-Autokämpfen, die man sich ansieht. Dieser Stand ist **Meilenstein 1**: die Kampf-Simulation und das Test-Tool zum Ausbalancieren. Das Spiel selbst ist auf Englisch, alle Namen, die Spieler sehen, stehen in `src/sim/names.ts`.
+Browser-Prototyp eines Arena-Spiels: Gladiatoren kämpfen in Echtzeit-Autokämpfen, die man sich ansieht. Dieser Stand ist **Meilenstein 2**: Kampf-Simulation und Test-Tool (Meilenstein 1) plus der Pixel-Kampf im Kolosseum mit Mercy-Moment. Das Spiel selbst ist auf Englisch, alle Namen, die Spieler sehen, stehen in `src/sim/names.ts`.
 
 ## Starten
 
@@ -17,11 +17,12 @@ npm run balance -- stones --n 20000 --seed 3   # nur eine Analyse, mit mehr Käm
 | Ordner | Inhalt |
 | --- | --- |
 | `src/sim/` | Die Simulation ohne Grafik: Typen, Zahlen (`config.ts`), Kampf (`combat.ts`), Stats und Kraft (`stats.ts`), Analysen (`analysis.ts`) |
+| `src/render/` | Die Darstellung: Pixel-Kampf (`arena.ts`), Kolosseum (`stage.ts`), Choreografie aus den Kampf-Ereignissen (`timeline.ts`), Sprite-Sheets (`sprites.ts`), Platzhalter-Grafik (`placeholder.ts`), Klänge (`audio.ts`) |
 | `src/tool/` | Das Test-Tool im Browser. Massensimulationen laufen in einem Web Worker. |
 | `scripts/balance.ts` | Dieselben Analysen ohne Browser |
 | `tests/` | Tests mit vitest |
 
-Die Simulation ist deterministisch: gleiche Gladiatoren und gleicher Seed ergeben immer denselben Kampf. Der Kampf liefert eine Liste von Ereignissen, die Meilenstein 2 als Pixel-Kampf abspielt.
+Die Simulation ist deterministisch: gleiche Gladiatoren und gleicher Seed ergeben immer denselben Kampf. Der Kampf liefert eine Liste von Ereignissen, die `src/render/` als Pixel-Kampf abspielt. Die Grafik entscheidet nichts, sie zeigt nur, was die Simulation ausgerechnet hat.
 
 ## Wie ein Kampf funktioniert
 
@@ -42,3 +43,37 @@ Dazu kommen Kampfstil (Heavy, Swift, Spear), Haltung mit Konter-Dreieck (Aggress
 - **Einstellungen**: Arena-Klassen (Grenzen, Einsätze), Exponent, Stein-Aufschläge und alle anderen Zahlen als JSON. Änderungen werden im Browser gespeichert, lassen sich exportieren, importieren und zurücksetzen.
 
 Beträge stehen intern in Silber (100 Silber = 1 Gold).
+
+## Der Pixel-Kampf (Tab „Arena“)
+
+Zeigt den Kampf der beiden Gladiatoren aus dem Duell-Tab mit dem eingestellten Seed. Ablauf:
+
+1. **Einmarsch** mit Einblendung der Tagesform („In Top Form! +40%“).
+2. **Kampf** (~11 s): Angriffs-Animationen treffen genau zum Zeitpunkt der Simulation. Schadenszahlen, Krits (gelb, kurzer Stopp), Crushing Blow (orange, Bildschirmwackeln, Einfrieren, Blitz), Ausweichen, Heilung, Dornen, Last Stand.
+3. **Mercy**: Der Verlierer kniet und bietet Geld. 10 s stimmt das Publikum ab (Köpfe werden grün oder rot). Dann entscheidet der Sieger: *Take the Gold*, *Spare with Honor* oder *Kill*.
+4. **Finisher**: Heavy köpft, Swift sticht ins Herz, Spear spießt auf. Gold: Der Beutel wird geworfen. Ehrenvoll: aufhelfen und Arm hochreißen.
+5. **Ergebnis**: Ruhm (± pro abstimmendem Zuschauer, je nachdem ob der Sieger der Mehrheit folgt), Gold, Ehre oder Schlächter, Narbe oder Tod mit Full Loot.
+
+Schalter: Tempo ½×/1×/2×, „Skip“ spult bis zum nächsten Abschnitt, Blut an/aus, Ton an/aus. Die Zahlen des Mercy-Moments (Zuschauer pro Klasse, Bestechung, Ruhm pro Stimme, Narbe) stehen in den Einstellungen unter `mercy`.
+
+### Eigene Grafik einbauen
+
+Die Figuren sind Platzhalter. Jede Figur ist ein Sprite-Sheet, 32×32 pro Bild, eine Zeile pro Animation:
+
+| Zeile | Animation | Pflicht |
+| --- | --- | --- |
+| 0 | idle (Stehen) | ja |
+| 1 | walk (Laufen) | ja |
+| 2 | attack (mit `hitFrame`: Bild, in dem die Waffe trifft) | ja |
+| 3 | hit (getroffen) | ja |
+| 4 | death (mit `kneelFrame`: Bild, in dem die Figur kniet) | ja |
+| 5 | cheer (Arm hochreißen) | nein, sonst idle |
+| 6 | help (Hand reichen) | nein, sonst idle |
+| 7 | head (nur der Kopf, fliegt beim Köpfen) | nein, sonst fliegt nichts |
+| 8 | deathHeadless (Tod ohne Kopf) | nein, sonst death |
+
+1. PNG nach `public/sprites/` legen, zum Beispiel `public/sprites/heavy.png`.
+2. In `src/render/sprites.ts` bei der Figur `src: 'sprites/heavy.png'` eintragen.
+3. Zeilen, Bildzahl, fps und Fußpunkt (`anchorX`, `anchorY`) an das Sheet anpassen. Ein Asset-Pack muss nicht genau dieses Raster haben.
+
+Im Tab „Arena“ lässt sich jedes Platzhalter-Sheet als PNG-Vorlage herunterladen. Die Figur im Sheet schaut nach rechts, die rechte Figur wird automatisch gespiegelt.
