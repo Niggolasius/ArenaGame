@@ -86,7 +86,8 @@ export function simulate(a: Gladiator, b: Gladiator, seed: number, cfg: Config, 
   const tps = cfg.sim.ticksPerSecond;
   const maxTicks = Math.round(cfg.sim.maxSeconds * tps);
 
-  for (const x of f) x.next = x.firstStrike ? 0 : rng() * cfg.sim.startDelayMax;
+  // Erstschlag: halber Start-Versatz. Ein ganz sofortiger Start machte schnelle Glaskanonen übermächtig.
+  for (const x of f) x.next = rng() * cfg.sim.startDelayMax * (x.firstStrike ? 0.5 : 1);
   // Tagesform: ein Zufallsfaktor pro Kampf auf den Schaden. Er sorgt für Überraschungen trotz klarer Stats.
   const form = [0, 1].map(() => 1 + cfg.sim.formSpread * (2 * rng() - 1)) as [number, number];
   f[0].dmgMult *= form[0];
@@ -112,10 +113,9 @@ export function simulate(a: Gladiator, b: Gladiator, seed: number, cfg: Config, 
       events?.push({ t, type: 'dodge', from: i });
       return false;
     }
-    const crit = (first && cfg.stones.erstschlagCrit) || rng() < att.crit;
+    const crit = rng() < att.crit;
     let dmg = att.hitDmg * att.dmgMult * (1 + cfg.sim.dmgSpread * (2 * rng() - 1));
     if (crit) dmg *= cfg.sim.critMult;
-    if (first) dmg *= cfg.stones.erstschlagMult;
     if (att.zorn) dmg *= 1 + att.zorn * (1 - att.hp / att.maxHp);
     const la = lsMod(att);
     if (la) dmg *= la.dmg;
@@ -123,6 +123,8 @@ export function simulate(a: Gladiator, b: Gladiator, seed: number, cfg: Config, 
     // Wuchttreffer: Chance pro Angriff skaliert mit dem Angriffsabstand, also gleich oft pro Sekunde für jeden.
     const lucky = cfg.sim.luckyChance > 0 && rng() < cfg.sim.luckyChance * att.interval * cfg.sim.attacksPerSecond;
     if (lucky) dmg += def.maxHp * cfg.sim.luckyHpFrac;
+    // Erstschlag: fester Anteil der gegnerischen HP, damit er bei jeder Bauart ähnlich viel wert ist.
+    if (first) dmg += def.maxHp * cfg.stones.erstschlagHpFrac;
     const ld = lsMod(def);
     if (ld) dmg *= ld.taken;
     const d = Math.max(1, Math.round(dmg));

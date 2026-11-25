@@ -10,7 +10,7 @@ const opt = (name: string, def: number) => {
 };
 const n = opt('n', 10000);
 const seed = opt('seed', 1);
-const all: AnalysisId[] = ['formel', 'haltung', 'steine', 'klassen', 'stile'];
+const all: AnalysisId[] = ['formel', 'haltung', 'steine', 'steinstufen', 'gefecht', 'distanz', 'klassen', 'stile'];
 const ids = args.filter((a: string) => (all as string[]).includes(a)) as AnalysisId[];
 
 function print(r: Report) {

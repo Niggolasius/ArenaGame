@@ -38,7 +38,7 @@ Dazu kommen Kampfstil (Schwer, Flink, Speer), Haltung mit Konter-Dreieck (Aggres
 ## Das Test-Tool
 
 - **Duell**: zwei Gladiatoren bauen (Stats, Stil, Anweisungen, Ausrüstung, Sockel, Steine). Kraft, Arena-Klasse und Formel-Chance werden sofort angezeigt. Ein Einzelkampf zeigt den HP-Verlauf und jedes Ereignis. Die Massensimulation rechnet zum Beispiel 10.000 Kämpfe und vergleicht sie mit der Formel. „Steinwert messen“ zeigt, was die Sondersteine von A wirklich bringen.
-- **Analysen**: Formel gegen Simulation, Haltungs-Konter, Steine als Kraft-Aufschlag, Siegquote am Klassenrand, Kampfstile. Jede Analyse zeigt, ob sie ihr Ziel erreicht.
+- **Analysen**: Formel gegen Simulation, Haltungs-Konter, Steine als Kraft-Aufschlag, Steine je Bauart (Glaskanone, Panzer usw.), Letztes Gefecht, passende Distanz, Siegquote am Klassenrand, Kampfstile. Jede Analyse zeigt, ob sie ihr Ziel erreicht.
 - **Einstellungen**: Arena-Klassen (Grenzen, Einsätze), Exponent, Stein-Aufschläge und alle anderen Zahlen als JSON. Änderungen werden im Browser gespeichert, lassen sich exportieren, importieren und zurücksetzen.
 
 Beträge stehen intern in Silber (100 Silber = 1 Gold).

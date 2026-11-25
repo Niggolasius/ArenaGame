@@ -43,8 +43,7 @@ export interface Config {
     zornMax: number; // Schadensbonus bei 0 % HP, linear
     dornen: number; // Anteil des erlittenen Schadens, der zurückgeht
     fluch: number; // Schadensfaktor für den Gegner
-    erstschlagCrit: boolean;
-    erstschlagMult: number; // zusätzlicher Faktor auf den ersten Treffer
+    erstschlagHpFrac: number; // erster Treffer: Zusatzschaden als Anteil der gegnerischen max HP, nicht ausweichbar
   };
   /** Kraft-Aufschlag für Sondersteine bei der Berechnung von K (Klassen, Anzeige). */
   kSurcharge: Partial<Record<Rarity, number>>;
@@ -102,8 +101,7 @@ export const DEFAULT_CONFIG: Config = {
     zornMax: 0.6,
     dornen: 0.22,
     fluch: 0.76,
-    erstschlagCrit: true,
-    erstschlagMult: 1.15,
+    erstschlagHpFrac: 0.14,
   },
   kSurcharge: { epic: 1.08, legendary: 1.12, mythic: 1.14 },
   maxSpecialStones: 1,

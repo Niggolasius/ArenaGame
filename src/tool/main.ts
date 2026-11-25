@@ -606,6 +606,9 @@ const ANALYSES: { id: AnalysisId; title: string; text: string }[] = [
   { id: 'formel', title: 'Formel', text: 'Passt P = Kᵉ/(Kᵉ+Kᵉ) zur Simulation? 240 zufällige Paare.' },
   { id: 'haltung', title: 'Haltung', text: 'Wie viel bringt ein Konter bei gleicher Kraft? Ziel +5 bis +8 pp.' },
   { id: 'steine', title: 'Steine', text: 'Jeder Stein mit und ohne, umgerechnet in einen K-Faktor.' },
+  { id: 'steinstufen', title: 'Steine je Stärke', text: 'Ist ein Stein bei schwachen und starken Gladiatoren gleich viel wert?' },
+  { id: 'gefecht', title: 'Letztes Gefecht', text: 'Alles geben, Durchhalten oder Normal: keine Wahl soll klar besser sein.' },
+  { id: 'distanz', title: 'Distanz', text: 'Was bringt die passende Distanz zum Kampfstil?' },
   { id: 'klassen', title: 'Klassenränder', text: 'Stärkster gegen Schwächsten jeder Arena-Klasse.' },
   { id: 'stile', title: 'Kampfstile', text: 'Schwer, Flink und Speer bei gleicher Kraft.' },
 ];
@@ -692,7 +695,7 @@ function showReport(id: AnalysisId) {
 
 function cellClass(c: string) {
   if (c === 'ok' || c === 'passt' || c === 'Konter') return 'good';
-  if (c === 'zu stark' || c === 'zu schwach' || c === 'wird gekontert') return 'bad';
+  if (c.startsWith('zu ') || c.startsWith('im Schnitt') || c === 'wird gekontert') return 'bad';
   return '';
 }
 
